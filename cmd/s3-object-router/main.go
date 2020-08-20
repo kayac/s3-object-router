@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws/session"
 	router "github.com/kayac/s3-object-router"
 )
 
@@ -47,11 +46,7 @@ func _main() error {
 		LocalTime:  localTime,
 		PutS3:      !noPut,
 	}
-	sess, err := session.NewSession()
-	if err != nil {
-		return err
-	}
-	r, err := router.New(&opt, sess)
+	r, err := router.New(&opt)
 	if err != nil {
 		return err
 	}

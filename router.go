@@ -39,16 +39,17 @@ type Router struct {
 }
 
 // New creates a new router
-func New(opt *Option, sess *session.Session) (*Router, error) {
+func New(opt *Option) (*Router, error) {
 	if err := opt.Init(); err != nil {
 		return nil, err
 	}
 
-	var (
-		tmpl *template.Template
-		err  error
-	)
-	tmpl = template.New("prefixGenerator")
+	sess, err := session.NewSession()
+	if err != nil {
+		return nil, err
+	}
+
+	tmpl := template.New("prefixGenerator")
 	tmpl.Funcs(template.FuncMap{
 		"replace": opt.replacer.Replace,
 	})
