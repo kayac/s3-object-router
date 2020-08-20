@@ -4,21 +4,49 @@ import (
 	"context"
 	"flag"
 	"log"
+	"net/url"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
 	router "github.com/kayac/s3-object-router"
 )
 
 func main() {
-	if err := _main(); err != nil {
+	r, err := setup()
+	if err != nil {
+		log.Println("[error]", err)
+		os.Exit(1)
+	}
+	if strings.HasPrefix(os.Getenv("AWS_EXECUTION_ENV"), "AWS_Lambda_go") {
+		lambda.Start(lambdaHandler(r))
+		return
+	}
+	if err := cli(r); err != nil {
 		log.Println("[error]", err)
 		os.Exit(1)
 	}
 }
 
-func _main() error {
+func lambdaHandler(r *router.Router) func(context.Context, events.S3Event) error {
+	return func(ctx context.Context, event events.S3Event) error {
+		for _, record := range event.Records {
+			u := url.URL{
+				Scheme: "s3",
+				Host:   record.S3.Bucket.Name,
+				Path:   record.S3.Object.Key,
+			}
+			if err := r.Run(ctx, u.String()); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
+func setup() (*router.Router, error) {
 	var (
 		bucket, keyPrefix, replacer       string
 		timeKey, timeFormat               string
@@ -47,10 +75,10 @@ func _main() error {
 		LocalTime:  localTime,
 		PutS3:      !noPut,
 	}
-	r, err := router.New(&opt)
-	if err != nil {
-		return err
-	}
+	return router.New(&opt)
+}
+
+func cli(r *router.Router) error {
 	for _, s3url := range flag.Args() {
 		if err := r.Run(context.Background(), s3url); err != nil {
 			return err
