@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	router "github.com/kayac/s3-object-router"
@@ -32,7 +33,7 @@ func _main() error {
 	flag.StringVar(&timeKey, "time-key", router.DefaultTimeKey, "record key name for time-parse")
 	flag.BoolVar(&localTime, "local-time", false, "set time zone to localtime for parsed time")
 	flag.BoolVar(&noPut, "no-put", false, "do not put to s3")
-
+	flag.VisitAll(envToFlag)
 	flag.Parse()
 
 	opt := router.Option{
@@ -56,4 +57,11 @@ func _main() error {
 		}
 	}
 	return nil
+}
+
+func envToFlag(f *flag.Flag) {
+	name := strings.ToUpper(strings.Replace(f.Name, "-", "_", -1))
+	if s, ok := os.LookupEnv(name); ok {
+		f.Value.Set(s)
+	}
 }
