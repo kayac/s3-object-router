@@ -19,18 +19,20 @@ func main() {
 
 func _main() error {
 	var (
-		bucket, keyPrefix string
-		gzip              bool
+		bucket, keyPrefix, replacer string
+		gzip                        bool
 	)
 	flag.StringVar(&bucket, "bucket", "", "destination S3 bucket name")
 	flag.StringVar(&keyPrefix, "key-prefix", "", "prefix of S3 key")
 	flag.BoolVar(&gzip, "gzip", true, "compress destination object by gzip")
+	flag.StringVar(&replacer, "replacer", "", `wildcard string replacer JSON. e.g. {"foo.bar.*":"foo"}`)
 	flag.Parse()
 
 	opt := router.Option{
 		Bucket:    bucket,
 		KeyPrefix: keyPrefix,
 		Gzip:      gzip,
+		Replacer:  replacer,
 	}
 	sess, err := session.NewSession()
 	if err != nil {

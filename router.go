@@ -40,12 +40,19 @@ type Router struct {
 
 // New creates a new router
 func New(opt *Option, sess *session.Session) (*Router, error) {
-	if err := opt.Validate(); err != nil {
+	if err := opt.Init(); err != nil {
 		return nil, err
 	}
 
-	t, err := template.New("prefixGenerator").Parse(opt.KeyPrefix)
-	if err != nil {
+	var (
+		tmpl *template.Template
+		err  error
+	)
+	tmpl = template.New("prefixGenerator")
+	tmpl.Funcs(template.FuncMap{
+		"replace": opt.replacer.Replace,
+	})
+	if tmpl, err = tmpl.Parse(opt.KeyPrefix); err != nil {
 		return nil, err
 	}
 
@@ -55,7 +62,7 @@ func New(opt *Option, sess *session.Session) (*Router, error) {
 		sem:    semaphore.NewWeighted(int64(MaxConcurrency)),
 		genKeyPrefix: func(r record) (string, error) {
 			var b strings.Builder
-			if err := t.Execute(&b, r); err != nil {
+			if err := tmpl.Execute(&b, r); err != nil {
 				return "", err
 			}
 			return b.String(), nil
