@@ -77,6 +77,31 @@ func (r *Router) Run(ctx context.Context, s3url string) error {
 		return err
 	}
 	defer src.Close()
+	dests := r.route(src, key)
+
+	meta := map[string]*string{
+		"x-amz-meta-original": aws.String(s3url),
+	}
+	eg := errgroup.Group{}
+	for dest, buf := range dests {
+		dest, buf := dest, buf
+		if c, isCloser := buf.(io.Closer); isCloser {
+			c.Close()
+		}
+		body := bytes.NewReader(buf.Bytes())
+		log.Println("[debug]", dest.String(), body.Len())
+		if r.option.PutS3 {
+			eg.Go(func() error {
+				return r.putToS3(ctx, dest, body, meta)
+			})
+		}
+	}
+
+	return eg.Wait()
+}
+
+func (r *Router) route(src io.Reader, key string) map[destination]buffer {
+	var err error
 	scanner := bufio.NewScanner(src)
 	dests := make(map[destination]buffer)
 
@@ -86,6 +111,14 @@ func (r *Router) Run(ctx context.Context, s3url string) error {
 		if err := json.Unmarshal(recordBytes, &rec); err != nil {
 			log.Println("[warn] failed to parse record", err)
 			continue
+		}
+		if r.option.TimeParse {
+			if ts, ok := rec[r.option.TimeKey].(string); ok {
+				rec[r.option.TimeKey], err = r.option.timeParser.Parse(ts)
+				if err != nil {
+					log.Println("[warn] failed to parse time", err)
+				}
+			}
 		}
 		d, err := r.genDestination(rec, key)
 		if err != nil {
@@ -104,21 +137,7 @@ func (r *Router) Run(ctx context.Context, s3url string) error {
 		body.Write(LF)
 		dests[d] = body
 	}
-
-	eg := errgroup.Group{}
-	for dest, buf := range dests {
-		dest, buf := dest, buf
-		if c, isCloser := buf.(io.Closer); isCloser {
-			c.Close()
-		}
-		body := bytes.NewReader(buf.Bytes())
-		log.Println("[debug]", dest.String(), body.Len())
-		eg.Go(func() error {
-			return r.uploadToS3(ctx, dest, body)
-		})
-	}
-
-	return eg.Wait()
+	return dests
 }
 
 func (r *Router) getS3Object(s3url string) (io.ReadCloser, string, error) {
@@ -156,19 +175,20 @@ func (r *Router) genDestination(rec record, base string) (destination, error) {
 	}, nil
 }
 
-func (r *Router) uploadToS3(ctx context.Context, dest destination, body io.ReadSeeker) error {
+func (r *Router) putToS3(ctx context.Context, dest destination, body io.ReadSeeker, meta map[string]*string) error {
 	r.sem.Acquire(ctx, 1)
 	defer r.sem.Release(1)
 
 	in := &s3.PutObjectInput{
-		Bucket: &dest.Bucket,
-		Key:    &dest.Key,
-		Body:   body,
+		Bucket:   &dest.Bucket,
+		Key:      &dest.Key,
+		Body:     body,
+		Metadata: meta,
 	}
-	log.Println("[info] starting upload to", dest.String())
+	log.Println("[info] starting put to", dest.String())
 	_, err := r.s3.PutObjectWithContext(ctx, in)
 	if err == nil {
-		log.Println("[info] completed upload to", dest.String())
+		log.Println("[info] completed put to", dest.String())
 	}
 	return err
 }

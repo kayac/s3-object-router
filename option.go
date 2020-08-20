@@ -3,11 +3,14 @@ package router
 import (
 	"encoding/json"
 	"strings"
+	"time"
 
 	"github.com/kayac/s3-object-router/wildcard"
 	"github.com/mickep76/mapslice-json"
 	"github.com/pkg/errors"
 )
+
+var DefaultTimeKey = "time"
 
 // Option represents option values of router
 type Option struct {
@@ -16,14 +19,30 @@ type Option struct {
 	TimeParse  bool
 	TimeKey    string
 	TimeFormat string
+	LocalTime  bool
 	Gzip       bool
 	Replacer   string
+	PutS3      bool
 
-	replacer replacer
+	replacer   replacer
+	timeParser timeParser
 }
 
 type replacer interface {
 	Replace(string) string
+}
+
+type timeParser struct {
+	layout string
+	loc    *time.Location
+}
+
+func (p timeParser) Parse(s string) (time.Time, error) {
+	t, err := time.Parse(p.layout, s)
+	if err != nil {
+		return t, err
+	}
+	return t.In(p.loc), nil
 }
 
 // Init initializes option struct.
@@ -55,6 +74,18 @@ func (opt *Option) Init() error {
 		opt.replacer = wildcard.NewReplacer(args...)
 	} else {
 		opt.replacer = strings.NewReplacer() // nop replacer
+	}
+	if opt.TimeParse {
+		p := timeParser{layout: opt.TimeFormat}
+		if opt.LocalTime {
+			p.loc = time.Local
+		} else {
+			p.loc = time.UTC
+		}
+		opt.timeParser = p
+	}
+	if opt.TimeKey == "" {
+		opt.TimeKey = DefaultTimeKey
 	}
 	return nil
 }
