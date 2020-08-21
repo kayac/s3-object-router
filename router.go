@@ -29,6 +29,9 @@ var LF = []byte("\n")
 // MaxConcurrency represents maximum concurrency for uploading to S3
 var MaxConcurrency = 10
 
+// MetaHeaderName is metadata name to set routed objects.
+var MetaHeaderName = "x-amz-meta-route-original"
+
 // Router represents s3-object-router application
 type Router struct {
 	s3     *s3.S3
@@ -74,7 +77,7 @@ func New(opt *Option) (*Router, error) {
 // Run runs router
 func (r *Router) Run(ctx context.Context, s3url string) error {
 	log.Println("[info] run", s3url)
-	src, key, err := r.getS3Object(s3url)
+	src, key, err := r.getS3Object(ctx, s3url)
 	if err != nil {
 		return err
 	}
@@ -82,7 +85,7 @@ func (r *Router) Run(ctx context.Context, s3url string) error {
 	dests := r.route(src, key)
 
 	meta := map[string]*string{
-		"x-amz-meta-original": aws.String(s3url),
+		MetaHeaderName: aws.String(s3url),
 	}
 	eg := errgroup.Group{}
 	for dest, buf := range dests {
@@ -142,7 +145,7 @@ func (r *Router) route(src io.Reader, key string) map[destination]buffer {
 	return dests
 }
 
-func (r *Router) getS3Object(s3url string) (io.ReadCloser, string, error) {
+func (r *Router) getS3Object(ctx context.Context, s3url string) (io.ReadCloser, string, error) {
 	u, err := url.Parse(s3url)
 	if err != nil {
 		return nil, "", err
@@ -151,7 +154,21 @@ func (r *Router) getS3Object(s3url string) (io.ReadCloser, string, error) {
 		return nil, "", errors.New("s3:// required")
 	}
 
-	out, err := r.s3.GetObject(&s3.GetObjectInput{
+	head, err := r.s3.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(u.Host),
+		Key:    aws.String(strings.TrimPrefix(u.Path, "/")),
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	// loop guard
+	for name, value := range head.Metadata {
+		if strings.ToLower(name) == MetaHeaderName {
+			return nil, "", fmt.Errorf("%s seems to be an already routed object. original: %s", s3url, *value)
+		}
+	}
+
+	out, err := r.s3.GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(u.Host),
 		Key:    aws.String(strings.TrimPrefix(u.Path, "/")),
 	})
