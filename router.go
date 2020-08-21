@@ -154,20 +154,6 @@ func (r *Router) getS3Object(ctx context.Context, s3url string) (io.ReadCloser, 
 		return nil, "", errors.New("s3:// required")
 	}
 
-	head, err := r.s3.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
-		Bucket: aws.String(u.Host),
-		Key:    aws.String(strings.TrimPrefix(u.Path, "/")),
-	})
-	if err != nil {
-		return nil, "", err
-	}
-	// loop guard
-	for name, value := range head.Metadata {
-		if strings.ToLower(name) == MetaHeaderName {
-			return nil, "", fmt.Errorf("%s seems to be an already routed object. original: %s", s3url, *value)
-		}
-	}
-
 	out, err := r.s3.GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(u.Host),
 		Key:    aws.String(strings.TrimPrefix(u.Path, "/")),
@@ -175,6 +161,14 @@ func (r *Router) getS3Object(ctx context.Context, s3url string) (io.ReadCloser, 
 	if err != nil {
 		return nil, "", err
 	}
+	// loop guard
+	for name, value := range out.Metadata {
+		if strings.ToLower(name) == MetaHeaderName {
+			out.Body.Close()
+			return nil, "", fmt.Errorf("%s seems to be an already routed object. original: %s", s3url, *value)
+		}
+	}
+
 	sum := sha256.Sum256([]byte(s3url))
 	return out.Body, fmt.Sprintf("%x", sum), nil
 }
