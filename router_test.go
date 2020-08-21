@@ -2,6 +2,8 @@ package router_test
 
 import (
 	"bytes"
+	"compress/gzip"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -18,7 +20,9 @@ var testRecords = []string{
 	`{"tag":"app.warn","message":"[WARN] app","time":"2020-08-21T15:43:11+09:00"}`,
 }
 
-var testSrc = bytes.NewBufferString(strings.Join(testRecords, "\n"))
+var testSrcBytes = []byte(strings.Join(testRecords, "\n"))
+var testSrc = bytes.NewBuffer(testSrcBytes)
+var testGzippedSrc = new(bytes.Buffer)
 
 var expectedRecords = map[string]string{
 	"s3://dummy/foo/app/2020-08-20/example":        concat(testRecords[0], testRecords[1], testRecords[4]),
@@ -36,6 +40,12 @@ func concat(strs ...string) string {
 	return b.String()
 }
 
+func TestMain(t *testing.T) {
+	w := gzip.NewWriter(testGzippedSrc)
+	w.Write(testSrcBytes)
+	w.Close()
+}
+
 func TestRoute(t *testing.T) {
 	opt := router.Option{
 		Bucket:     "dummy",
@@ -50,13 +60,21 @@ func TestRoute(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	res := router.DoTestRoute(r, testSrc, "example")
-	if len(res) != len(expectedRecords) {
-		t.Errorf("unexpected routed records num")
-	}
-	for u, expected := range expectedRecords {
-		if expected != res[u] {
-			t.Errorf("expected %s got %s", expected, res[u])
+
+	for _, src := range []io.Reader{testSrc, testGzippedSrc} {
+		res, err := router.DoTestRoute(r, src, "example")
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+		if len(res) != len(expectedRecords) {
+			t.Errorf("unexpected routed records num")
+			continue
+		}
+		for u, expected := range expectedRecords {
+			if expected != res[u] {
+				t.Errorf("expected %s got %s", expected, res[u])
+			}
 		}
 	}
 }

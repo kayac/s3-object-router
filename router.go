@@ -32,6 +32,8 @@ var MaxConcurrency = 10
 // MetaHeaderName is metadata name to set routed objects.
 var MetaHeaderName = "x-amz-meta-route-original"
 
+var gzipMagicBytes = []byte{0x1f, 0x8b}
+
 // Router represents s3-object-router application
 type Router struct {
 	s3     *s3.S3
@@ -82,7 +84,10 @@ func (r *Router) Run(ctx context.Context, s3url string) error {
 		return err
 	}
 	defer src.Close()
-	dests := r.route(src, key)
+	dests, err := r.route(src, key)
+	if err != nil {
+		return err
+	}
 
 	meta := map[string]*string{
 		MetaHeaderName: aws.String(s3url),
@@ -105,8 +110,25 @@ func (r *Router) Run(ctx context.Context, s3url string) error {
 	return eg.Wait()
 }
 
-func (r *Router) route(src io.Reader, key string) map[destination]buffer {
-	var err error
+func unGzip(src io.Reader) (io.Reader, error) {
+	bufSrc := bufio.NewReader(src)
+	if b, err := bufSrc.Peek(2); err != nil {
+		// less than 2 bytes. returns original
+		return bufSrc, nil
+	} else if bytes.Equal(b, gzipMagicBytes) {
+		// gzipped
+		return gzip.NewReader(bufSrc)
+	} else {
+		// raw
+		return bufSrc, nil
+	}
+}
+
+func (r *Router) route(src io.Reader, key string) (map[destination]buffer, error) {
+	src, err := unGzip(src)
+	if err != nil {
+		return nil, err
+	}
 	scanner := bufio.NewScanner(src)
 	dests := make(map[destination]buffer)
 
@@ -142,7 +164,7 @@ func (r *Router) route(src io.Reader, key string) map[destination]buffer {
 		body.Write(LF)
 		dests[d] = body
 	}
-	return dests
+	return dests, nil
 }
 
 func (r *Router) getS3Object(ctx context.Context, s3url string) (io.ReadCloser, string, error) {
