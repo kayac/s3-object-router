@@ -34,6 +34,11 @@ var MetaHeaderName = "x-amz-meta-route-original"
 
 var gzipMagicBytes = []byte{0x1f, 0x8b}
 
+var (
+	initialBufSize = 64 * 1024
+	maxBufSize     = initialBufSize * 10
+)
+
 // Router represents s3-object-router application
 type Router struct {
 	s3     *s3.S3
@@ -130,6 +135,9 @@ func (r *Router) route(src io.Reader, key string) (map[destination]buffer, error
 		return nil, err
 	}
 	scanner := bufio.NewScanner(src)
+	buf := make([]byte, initialBufSize)
+	scanner.Buffer(buf, maxBufSize)
+
 	dests := make(map[destination]buffer)
 
 	for scanner.Scan() {
@@ -163,6 +171,9 @@ func (r *Router) route(src io.Reader, key string) (map[destination]buffer, error
 		body.Write(recordBytes)
 		body.Write(LF)
 		dests[d] = body
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
 	}
 	return dests, nil
 }
