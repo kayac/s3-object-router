@@ -73,6 +73,7 @@ func New(opt *Option) (*Router, error) {
 
 // Run runs router
 func (r *Router) Run(ctx context.Context, s3url string) error {
+	log.Println("[info] run", s3url)
 	src, key, err := r.getS3Object(s3url)
 	if err != nil {
 		return err
@@ -90,7 +91,7 @@ func (r *Router) Run(ctx context.Context, s3url string) error {
 			c.Close()
 		}
 		body := bytes.NewReader(buf.Bytes())
-		log.Println("[debug]", dest.String(), body.Len())
+		log.Println("[info] route", dest.String(), body.Len(), "bytes")
 		if r.option.PutS3 {
 			eg.Go(func() error {
 				return r.putToS3(ctx, dest, body, meta)

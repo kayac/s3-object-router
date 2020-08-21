@@ -75,6 +75,7 @@ func setup() (*router.Router, error) {
 		LocalTime:  localTime,
 		PutS3:      !noPut,
 	}
+	log.Printf("[debug] option: %#v", opt)
 	return router.New(&opt)
 }
 
