@@ -6,8 +6,8 @@ var (
 // NewXXX = newXXX
 )
 
-func DoTestRoute(r *Router, src io.Reader, key string) (map[string]string, error) {
-	dests, err := r.route(src, key)
+func DoTestRoute(r *Router, src io.Reader, s3url string) (map[string]string, error) {
+	dests, err := r.route(src, s3url)
 	if err != nil {
 		return nil, err
 	}

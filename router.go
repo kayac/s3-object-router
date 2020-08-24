@@ -84,12 +84,12 @@ func New(opt *Option) (*Router, error) {
 // Run runs router
 func (r *Router) Run(ctx context.Context, s3url string) error {
 	log.Println("[info] run", s3url)
-	src, key, err := r.getS3Object(ctx, s3url)
+	src, err := r.getS3Object(ctx, s3url)
 	if err != nil {
 		return err
 	}
 	defer src.Close()
-	dests, err := r.route(src, key)
+	dests, err := r.route(src, s3url)
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,16 @@ func unGzip(src io.Reader) (io.Reader, error) {
 	}
 }
 
-func (r *Router) route(src io.Reader, key string) (map[destination]buffer, error) {
+func (r *Router) genKey(s3url string) string {
+	if r.option.KeepOriginalName {
+		return path.Base(s3url)
+	}
+	sum := sha256.Sum256([]byte(s3url))
+	return fmt.Sprintf("%x", sum)
+}
+
+func (r *Router) route(src io.Reader, s3url string) (map[destination]buffer, error) {
+	key := r.genKey(s3url)
 	src, err := unGzip(src)
 	if err != nil {
 		return nil, err
@@ -178,13 +187,13 @@ func (r *Router) route(src io.Reader, key string) (map[destination]buffer, error
 	return dests, nil
 }
 
-func (r *Router) getS3Object(ctx context.Context, s3url string) (io.ReadCloser, string, error) {
+func (r *Router) getS3Object(ctx context.Context, s3url string) (io.ReadCloser, error) {
 	u, err := url.Parse(s3url)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	if u.Scheme != "s3" {
-		return nil, "", errors.New("s3:// required")
+		return nil, errors.New("s3:// required")
 	}
 
 	out, err := r.s3.GetObjectWithContext(ctx, &s3.GetObjectInput{
@@ -192,26 +201,25 @@ func (r *Router) getS3Object(ctx context.Context, s3url string) (io.ReadCloser, 
 		Key:    aws.String(strings.TrimPrefix(u.Path, "/")),
 	})
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	// loop guard
 	for name, value := range out.Metadata {
 		if strings.ToLower(name) == MetaHeaderName {
 			out.Body.Close()
-			return nil, "", fmt.Errorf("%s seems to be an already routed object. original: %s", s3url, *value)
+			return nil, fmt.Errorf("%s seems to be an already routed object. original: %s", s3url, *value)
 		}
 	}
 
-	sum := sha256.Sum256([]byte(s3url))
-	return out.Body, fmt.Sprintf("%x", sum), nil
+	return out.Body, nil
 }
 
-func (r *Router) genDestination(rec record, base string) (destination, error) {
+func (r *Router) genDestination(rec record, name string) (destination, error) {
 	prefix, err := r.genKeyPrefix(rec)
 	if err != nil {
 		return destination{}, err
 	}
-	key := path.Join(prefix, base)
+	key := path.Join(prefix, name)
 	if r.option.Gzip {
 		key = key + ".gz"
 	}

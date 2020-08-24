@@ -48,9 +48,9 @@ func lambdaHandler(r *router.Router) func(context.Context, events.S3Event) error
 
 func setup() (*router.Router, error) {
 	var (
-		bucket, keyPrefix, replacer       string
-		timeKey, timeFormat               string
-		gzip, timeParse, localTime, noPut bool
+		bucket, keyPrefix, replacer             string
+		timeKey, timeFormat                     string
+		gzip, timeParse, localTime, noPut, keep bool
 	)
 	flag.StringVar(&bucket, "bucket", "", "destination S3 bucket name")
 	flag.StringVar(&keyPrefix, "key-prefix", "", "prefix of S3 key")
@@ -61,19 +61,21 @@ func setup() (*router.Router, error) {
 	flag.StringVar(&timeKey, "time-key", router.DefaultTimeKey, "record key name for time-parse")
 	flag.BoolVar(&localTime, "local-time", false, "set time zone to localtime for parsed time")
 	flag.BoolVar(&noPut, "no-put", false, "do not put to s3")
+	flag.BoolVar(&keep, "keep-original-name", false, "keep original object base name")
 	flag.VisitAll(envToFlag)
 	flag.Parse()
 
 	opt := router.Option{
-		Bucket:     bucket,
-		KeyPrefix:  keyPrefix,
-		Gzip:       gzip,
-		Replacer:   replacer,
-		TimeParse:  timeParse,
-		TimeKey:    timeKey,
-		TimeFormat: timeFormat,
-		LocalTime:  localTime,
-		PutS3:      !noPut,
+		Bucket:           bucket,
+		KeyPrefix:        keyPrefix,
+		Gzip:             gzip,
+		Replacer:         replacer,
+		TimeParse:        timeParse,
+		TimeKey:          timeKey,
+		TimeFormat:       timeFormat,
+		LocalTime:        localTime,
+		PutS3:            !noPut,
+		KeepOriginalName: keep,
 	}
 	log.Printf("[debug] option: %#v", opt)
 	return router.New(&opt)
