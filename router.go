@@ -34,6 +34,8 @@ var MetaHeaderName = "x-amz-meta-route-original"
 
 var gzipMagicBytes = []byte{0x1f, 0x8b}
 
+var gzipSuffix = ".gz"
+
 var (
 	initialBufSize = 64 * 1024
 	maxBufSize     = initialBufSize * 10
@@ -220,8 +222,8 @@ func (r *Router) genDestination(rec record, name string) (destination, error) {
 		return destination{}, err
 	}
 	key := path.Join(prefix, name)
-	if r.option.Gzip {
-		key = key + ".gz"
+	if r.option.Gzip && !strings.HasSuffix(name, gzipSuffix) {
+		key = key + gzipSuffix
 	}
 	return destination{
 		Bucket: r.option.Bucket,
