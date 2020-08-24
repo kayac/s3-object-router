@@ -21,14 +21,13 @@ var testRecords = []string{
 }
 
 var testSrcBytes = []byte(strings.Join(testRecords, "\n"))
-var testSrc = bytes.NewBuffer(testSrcBytes)
-var testGzippedSrc = new(bytes.Buffer)
+var testGzippedSrcBytes []byte
 
 var expectedRecords = map[string]string{
-	"s3://dummy/foo/app/2020-08-20/example":        concat(testRecords[0], testRecords[1], testRecords[4]),
-	"s3://dummy/foo/app/2020-08-21/example":        concat(testRecords[5]),
-	"s3://dummy/foo/batch.info/2020-08-19/example": concat(testRecords[2]),
-	"s3://dummy/foo/batch.warn/2020-08-20/example": concat(testRecords[3]),
+	"s3://dummy/foo/app/2020-08-20/":        concat(testRecords[0], testRecords[1], testRecords[4]),
+	"s3://dummy/foo/app/2020-08-21/":        concat(testRecords[5]),
+	"s3://dummy/foo/batch.info/2020-08-19/": concat(testRecords[2]),
+	"s3://dummy/foo/batch.warn/2020-08-20/": concat(testRecords[3]),
 }
 
 func concat(strs ...string) string {
@@ -41,28 +40,34 @@ func concat(strs ...string) string {
 }
 
 func TestMain(t *testing.T) {
-	w := gzip.NewWriter(testGzippedSrc)
+	var b bytes.Buffer
+	w := gzip.NewWriter(&b)
 	w.Write(testSrcBytes)
 	w.Close()
+	testGzippedSrcBytes = b.Bytes()
 }
 
-func TestRoute(t *testing.T) {
+func testRoute(t *testing.T, keep bool) {
 	opt := router.Option{
-		Bucket:     "dummy",
-		KeyPrefix:  `foo/{{ replace .tag }}/{{ .time.Format "2006-01-02" }}/`,
-		Gzip:       false,
-		Replacer:   `{"app.*":"app"}`,
-		TimeParse:  true,
-		TimeFormat: time.RFC3339,
-		PutS3:      false,
+		Bucket:           "dummy",
+		KeyPrefix:        `foo/{{ replace .tag }}/{{ .time.Format "2006-01-02" }}/`,
+		Gzip:             false,
+		Replacer:         `{"app.*":"app"}`,
+		TimeParse:        true,
+		TimeFormat:       time.RFC3339,
+		PutS3:            false,
+		KeepOriginalName: keep,
 	}
 	r, err := router.New(&opt)
 	if err != nil {
 		t.Error(err)
 	}
 
-	for _, src := range []io.Reader{testSrc, testGzippedSrc} {
-		res, err := router.DoTestRoute(r, src, "example")
+	for _, src := range []io.Reader{
+		bytes.NewReader(testSrcBytes),
+		bytes.NewReader(testGzippedSrcBytes),
+	} {
+		res, err := router.DoTestRoute(r, src, "s3://example-bucket/path/to/example-object")
 		if err != nil {
 			t.Error(err)
 			continue
@@ -71,10 +76,26 @@ func TestRoute(t *testing.T) {
 			t.Errorf("unexpected routed records num")
 			continue
 		}
-		for u, expected := range expectedRecords {
+		var name string
+		if keep {
+			name = "example-object"
+		} else {
+			// sha256sum of s3://example-bucket/path/to/example-object
+			name = "f7ec2b7eb299d99468ff797fba836fa6cfc4389e21562f50a7d41ddcf43bfd01"
+		}
+		for path, expected := range expectedRecords {
+			u := path + name
 			if expected != res[u] {
 				t.Errorf("expected %s got %s", expected, res[u])
 			}
 		}
 	}
+}
+
+func TestRouteKeepName(t *testing.T) {
+	testRoute(t, false)
+}
+
+func TestRoute(t *testing.T) {
+	testRoute(t, true)
 }

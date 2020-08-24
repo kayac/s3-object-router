@@ -40,6 +40,8 @@ Usage of s3-object-router:
     	destination S3 bucket name
   -gzip
     	compress destination object by gzip (default true)
+  -keep-original-name
+    	keep original object base name
   -key-prefix string
     	prefix of S3 key
   -local-time

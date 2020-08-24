@@ -14,15 +14,16 @@ var DefaultTimeKey = "time"
 
 // Option represents option values of router
 type Option struct {
-	Bucket     string
-	KeyPrefix  string
-	TimeParse  bool
-	TimeKey    string
-	TimeFormat string
-	LocalTime  bool
-	Gzip       bool
-	Replacer   string
-	PutS3      bool
+	Bucket           string
+	KeyPrefix        string
+	TimeParse        bool
+	TimeKey          string
+	TimeFormat       string
+	LocalTime        bool
+	Gzip             bool
+	Replacer         string
+	PutS3            bool
+	KeepOriginalName bool
 
 	replacer   replacer
 	timeParser timeParser
