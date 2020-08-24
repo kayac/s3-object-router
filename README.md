@@ -1,6 +1,6 @@
 # s3-object-router
 
-S3 object router
+S3 object router.
 
 ## Description
 
@@ -81,6 +81,8 @@ Example Lambda functions configuration.
 }
 ```
 
+IAM Role of the function requires permissions (s3:GetObject and s3:PutObject) to source and destination objects.
+
 ### key-prefix
 
 key-prefix renders Go template syntax with JSON objects.
@@ -122,6 +124,7 @@ For example,
 
 The first line will be routed to `path/to/app.normal/`, the second and third line will be routed to `path/to/app.alert`.
 
+`-replacer` takes a definition as JSON string. The key defines matcher(may includes wildcard `*` and `?`) and the value defines replacement. The matchers works with an order that appears in JSON. When a matcher matches to a string, replace it to replacement and breaks (will not try other matchers).
 
 ## LICENSE
 
