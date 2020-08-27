@@ -100,7 +100,7 @@ For example,
   {"tag": "app.warn", "time": "2020-08-24T12:00:01", "source": "stderr", "message": "yyy"}
   ```
 
-The first line will be routed to `path/to/app.info/2020-08-24-11/stdout/`, the second line will be routed to `path/to/app.info/2020-08-24-12/stderr/`.
+The first line will be routed to `path/to/app.info/2020-08-24-11/stdout/`, the second line will be routed to `path/to/app.warn/2020-08-24-12/stderr/`.
 
 ### replace function
 
