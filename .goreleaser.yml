@@ -5,8 +5,10 @@ builds:
   - env:
       - CGO_ENABLED=0
     main: ./cmd/s3-object-router/main.go
-    goarch:
+    goos:
+      - linux
       - darwin
+    goarch:
       - amd64
 archives:
 checksum:
