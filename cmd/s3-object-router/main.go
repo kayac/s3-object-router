@@ -20,7 +20,9 @@ func main() {
 		log.Println("[error]", err)
 		os.Exit(1)
 	}
-	if strings.HasPrefix(os.Getenv("AWS_EXECUTION_ENV"), "AWS_Lambda_go") {
+
+	if strings.HasPrefix(os.Getenv("AWS_EXECUTION_ENV"), "AWS_Lambda") ||
+		os.Getenv("AWS_LAMBDA_RUNTIME_API") != "" {
 		lambda.Start(lambdaHandler(r))
 		return
 	}
