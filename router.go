@@ -6,7 +6,6 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -146,6 +145,7 @@ func (r *Router) route(src io.Reader, s3url string) (map[destination]buffer, err
 		return nil, err
 	}
 	scanner := bufio.NewScanner(src)
+	lineParser := r.option.lineParser
 	buf := make([]byte, initialBufSize)
 	scanner.Buffer(buf, maxBufSize)
 
@@ -154,8 +154,10 @@ func (r *Router) route(src io.Reader, s3url string) (map[destination]buffer, err
 	for scanner.Scan() {
 		recordBytes := scanner.Bytes()
 		var rec record
-		if err := json.Unmarshal(recordBytes, &rec); err != nil {
-			log.Println("[warn] failed to parse record", err)
+		if err := lineParser.Parse(recordBytes, &rec); err != nil {
+			if err != SkipLine {
+				log.Println("[warn] failed to parse record", err)
+			}
 			continue
 		}
 		if r.option.TimeParse {
