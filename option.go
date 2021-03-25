@@ -22,10 +22,12 @@ type Option struct {
 	LocalTime        bool
 	Gzip             bool
 	Replacer         string
+	Parser           string
 	PutS3            bool
 	KeepOriginalName bool
 
 	replacer   replacer
+	lineParser lineParser
 	timeParser timeParser
 }
 
@@ -33,6 +35,9 @@ type replacer interface {
 	Replace(string) string
 }
 
+type lineParser interface {
+	Parse([]byte, *record) error
+}
 type timeParser struct {
 	layout string
 	loc    *time.Location
@@ -75,6 +80,16 @@ func (opt *Option) Init() error {
 		opt.replacer = wildcard.NewReplacer(args...)
 	} else {
 		opt.replacer = strings.NewReplacer() // nop replacer
+	}
+	switch opt.Parser {
+	case "", "json":
+		opt.lineParser = lineParserFunc(func(b []byte, r *record) error {
+			return json.Unmarshal(b, r)
+		})
+	case "cloudfront":
+		opt.lineParser = &cloudfrontParser{}
+	default:
+		return errors.New("parser must be string any of json|cloudfront")
 	}
 	if opt.TimeParse {
 		p := timeParser{layout: opt.TimeFormat}
