@@ -52,6 +52,7 @@ func (p *cloudfrontParser) Parse(bs []byte, r *record) error {
 					field = strings.ReplaceAll(field, target, "_")
 				}
 				field = strings.ToLower(field)
+				field = strings.TrimRight(field, "_")
 				fields = append(fields, field)
 			}
 			p.fields = fields
