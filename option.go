@@ -24,6 +24,7 @@ type Option struct {
 	Replacer         string `json:"replacer,omitempty"`
 	Parser           string `json:"parser,omitempty"`
 	PutS3            bool   `json:"put_s3,omitempty"`
+	KeepOriginalLine bool   `json:"keep_original_line,omitempty"`
 	KeepOriginalName bool   `json:"keep_original_name,omitempty"`
 
 	replacer   replacer

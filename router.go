@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -181,7 +182,16 @@ func (r *Router) route(src io.Reader, s3url string) (map[destination]buffer, err
 				body = new(bytes.Buffer)
 			}
 		}
-		body.Write(recordBytes)
+		if r.option.KeepOriginalLine {
+			body.Write(recordBytes)
+		} else {
+			bytes, err := json.Marshal(rec)
+			if err != nil {
+				log.Println("[warn] failed to generate json record", err)
+				continue
+			}
+			body.Write(bytes)
+		}
 		body.Write(LF)
 		dests[d] = body
 	}

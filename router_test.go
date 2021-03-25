@@ -61,6 +61,7 @@ func testRoute(t *testing.T, keep bool) {
 		TimeFormat:       time.RFC3339,
 		PutS3:            false,
 		KeepOriginalName: keep,
+		KeepOriginalLine: true,
 	}
 	r, err := router.New(&opt)
 	if err != nil {

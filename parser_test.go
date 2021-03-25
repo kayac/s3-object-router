@@ -82,7 +82,7 @@ func testParser(t *testing.T, caseDir fs.FileInfo) {
 		}
 	}()
 	for _, src := range config.Sources {
-		path := filepath.Join("testdata", caseDir.Name(), src)
+		path := filepath.Join("testdata", src)
 		sfp, err := os.Open(path)
 		if err != nil {
 			t.Error(err)
@@ -96,7 +96,7 @@ func testParser(t *testing.T, caseDir fs.FileInfo) {
 			t.Error(err)
 			continue
 		}
-		goldenFile := path + ".golden"
+		goldenFile := filepath.Join("testdata", caseDir.Name(), filepath.Base(path)+".golden")
 		if *updateFlag {
 			writeParserGolden(t, goldenFile, res)
 		}
