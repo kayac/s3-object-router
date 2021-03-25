@@ -14,17 +14,17 @@ var DefaultTimeKey = "time"
 
 // Option represents option values of router
 type Option struct {
-	Bucket           string
-	KeyPrefix        string
-	TimeParse        bool
-	TimeKey          string
-	TimeFormat       string
-	LocalTime        bool
-	Gzip             bool
-	Replacer         string
-	Parser           string
-	PutS3            bool
-	KeepOriginalName bool
+	Bucket           string `json:"bucket,omitempty"`
+	KeyPrefix        string `json:"key_prefix,omitempty"`
+	TimeParse        bool   `json:"time_parse,omitempty"`
+	TimeKey          string `json:"time_key,omitempty"`
+	TimeFormat       string `json:"time_format,omitempty"`
+	LocalTime        bool   `json:"local_time,omitempty"`
+	Gzip             bool   `json:"gzip,omitempty"`
+	Replacer         string `json:"replacer,omitempty"`
+	Parser           string `json:"parser,omitempty"`
+	PutS3            bool   `json:"put_s3,omitempty"`
+	KeepOriginalName bool   `json:"keep_original_name,omitempty"`
 
 	replacer   replacer
 	lineParser lineParser
