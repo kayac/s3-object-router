@@ -146,7 +146,7 @@ func (r *Router) route(src io.Reader, s3url string) (map[destination]buffer, err
 		return nil, err
 	}
 	scanner := bufio.NewScanner(src)
-	lineParser := r.option.lineParser
+	recordParser := r.option.recordParser
 	buf := make([]byte, initialBufSize)
 	scanner.Buffer(buf, maxBufSize)
 
@@ -155,7 +155,7 @@ func (r *Router) route(src io.Reader, s3url string) (map[destination]buffer, err
 	for scanner.Scan() {
 		recordBytes := scanner.Bytes()
 		var rec record
-		if err := lineParser.Parse(recordBytes, &rec); err != nil {
+		if err := recordParser.Parse(recordBytes, &rec); err != nil {
 			if err != SkipLine {
 				log.Println("[warn] failed to parse record", err)
 			}
@@ -182,7 +182,7 @@ func (r *Router) route(src io.Reader, s3url string) (map[destination]buffer, err
 				body = new(bytes.Buffer)
 			}
 		}
-		if r.option.KeepOriginalLine {
+		if r.option.KeepOriginalRecord {
 			body.Write(recordBytes)
 		} else {
 			bytes, err := json.Marshal(rec)

@@ -58,30 +58,30 @@ func setup() (*router.Router, error) {
 	flag.StringVar(&keyPrefix, "key-prefix", "", "prefix of S3 key")
 	flag.BoolVar(&gzip, "gzip", true, "compress destination object by gzip")
 	flag.StringVar(&replacer, "replacer", "", `wildcard string replacer JSON. e.g. {"foo.bar.*":"foo"}`)
-	flag.StringVar(&parser, "parser", "json", "object line parser. choices are (json|cloudfront), default is json")
+	flag.StringVar(&parser, "parser", "json", "object record parser. choices are (json|cloudfront), default is json")
 	flag.BoolVar(&timeParse, "time-parse", false, "parse record value as time.Time with -time-format")
 	flag.StringVar(&timeFormat, "time-format", time.RFC3339Nano, "format of time-parse")
 	flag.StringVar(&timeKey, "time-key", router.DefaultTimeKey, "record key name for time-parse")
 	flag.BoolVar(&localTime, "local-time", false, "set time zone to localtime for parsed time")
 	flag.BoolVar(&noPut, "no-put", false, "do not put to s3")
 	flag.BoolVar(&keep, "keep-original-name", false, "keep original object base name")
-	flag.BoolVar(&keepLine, "keep-original-line", true, "keep original object line")
+	flag.BoolVar(&keepLine, "keep-original-record", true, "keep original object record")
 	flag.VisitAll(envToFlag)
 	flag.Parse()
 
 	opt := router.Option{
-		Bucket:           bucket,
-		KeyPrefix:        keyPrefix,
-		Gzip:             gzip,
-		Replacer:         replacer,
-		Parser:           parser,
-		TimeParse:        timeParse,
-		TimeKey:          timeKey,
-		TimeFormat:       timeFormat,
-		LocalTime:        localTime,
-		PutS3:            !noPut,
-		KeepOriginalName: keep,
-		KeepOriginalLine: keepLine,
+		Bucket:             bucket,
+		KeyPrefix:          keyPrefix,
+		Gzip:               gzip,
+		Replacer:           replacer,
+		Parser:             parser,
+		TimeParse:          timeParse,
+		TimeKey:            timeKey,
+		TimeFormat:         timeFormat,
+		LocalTime:          localTime,
+		PutS3:              !noPut,
+		KeepOriginalName:   keep,
+		KeepOriginalRecord: keepLine,
 	}
 	log.Printf("[debug] option: %#v", opt)
 	return router.New(&opt)

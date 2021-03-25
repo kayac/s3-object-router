@@ -14,29 +14,29 @@ var DefaultTimeKey = "time"
 
 // Option represents option values of router
 type Option struct {
-	Bucket           string `json:"bucket,omitempty"`
-	KeyPrefix        string `json:"key_prefix,omitempty"`
-	TimeParse        bool   `json:"time_parse,omitempty"`
-	TimeKey          string `json:"time_key,omitempty"`
-	TimeFormat       string `json:"time_format,omitempty"`
-	LocalTime        bool   `json:"local_time,omitempty"`
-	Gzip             bool   `json:"gzip,omitempty"`
-	Replacer         string `json:"replacer,omitempty"`
-	Parser           string `json:"parser,omitempty"`
-	PutS3            bool   `json:"put_s3,omitempty"`
-	KeepOriginalLine bool   `json:"keep_original_line,omitempty"`
-	KeepOriginalName bool   `json:"keep_original_name,omitempty"`
+	Bucket             string `json:"bucket,omitempty"`
+	KeyPrefix          string `json:"key_prefix,omitempty"`
+	TimeParse          bool   `json:"time_parse,omitempty"`
+	TimeKey            string `json:"time_key,omitempty"`
+	TimeFormat         string `json:"time_format,omitempty"`
+	LocalTime          bool   `json:"local_time,omitempty"`
+	Gzip               bool   `json:"gzip,omitempty"`
+	Replacer           string `json:"replacer,omitempty"`
+	Parser             string `json:"parser,omitempty"`
+	PutS3              bool   `json:"put_s3,omitempty"`
+	KeepOriginalRecord bool   `json:"keep_original_record,omitempty"`
+	KeepOriginalName   bool   `json:"keep_original_name,omitempty"`
 
-	replacer   replacer
-	lineParser lineParser
-	timeParser timeParser
+	replacer     replacer
+	recordParser recordParser
+	timeParser   timeParser
 }
 
 type replacer interface {
 	Replace(string) string
 }
 
-type lineParser interface {
+type recordParser interface {
 	Parse([]byte, *record) error
 }
 type timeParser struct {
@@ -84,11 +84,11 @@ func (opt *Option) Init() error {
 	}
 	switch opt.Parser {
 	case "", "json":
-		opt.lineParser = lineParserFunc(func(b []byte, r *record) error {
+		opt.recordParser = recordParserFunc(func(b []byte, r *record) error {
 			return json.Unmarshal(b, r)
 		})
 	case "cloudfront":
-		opt.lineParser = &cloudfrontParser{}
+		opt.recordParser = &cloudfrontParser{}
 	default:
 		return errors.New("parser must be string any of json|cloudfront")
 	}

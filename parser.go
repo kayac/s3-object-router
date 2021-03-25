@@ -11,14 +11,14 @@ const (
 	defaultCloudFrontNumColumns = 33
 )
 
-//lineParser predefined errors
+//recordParser predefined errors
 var (
 	SkipLine = errors.New("Please skip this line.")
 )
 
-type lineParserFunc func([]byte, *record) error
+type recordParserFunc func([]byte, *record) error
 
-func (p lineParserFunc) Parse(bs []byte, r *record) error {
+func (p recordParserFunc) Parse(bs []byte, r *record) error {
 	return p(bs, r)
 }
 
