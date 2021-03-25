@@ -3,7 +3,6 @@ package router_test
 import (
 	"encoding/json"
 	"io"
-	"io/fs"
 	"io/ioutil"
 	"mime/multipart"
 	"os"
@@ -30,13 +29,13 @@ func TestParser(t *testing.T) {
 			continue
 		}
 		t.Run(c.Name(), func(t *testing.T) {
-			testParser(t, c)
+			testParser(t, c.Name())
 		})
 	}
 }
 
-func testParser(t *testing.T, caseDir fs.FileInfo) {
-	fp, err := os.Open(filepath.Join("testdata", caseDir.Name(), "config.json"))
+func testParser(t *testing.T, caseDirName string) {
+	fp, err := os.Open(filepath.Join("testdata", caseDirName, "config.json"))
 	if err != nil {
 		t.Logf("can not open test config:%s", err)
 		t.FailNow()
@@ -75,7 +74,7 @@ func testParser(t *testing.T, caseDir fs.FileInfo) {
 			t.Error(err)
 			continue
 		}
-		goldenFile := filepath.Join("testdata", caseDir.Name(), filepath.Base(path)+".golden")
+		goldenFile := filepath.Join("testdata", caseDirName, filepath.Base(path)+".golden")
 		if *updateFlag {
 			writeParserGolden(t, goldenFile, res)
 		}
