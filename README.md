@@ -165,9 +165,9 @@ The 3rd line will be routed to `path/to/LAX1/2019-12-04-21/`, the 4th line will 
 `cloudfront` parser parses two header lines in S3 object.
 At that time, the field name is converted according to the following rules.
 
-    1. Convert `(` `)` `-` to `_`
-    1. Convert to all lowercase
-    1. Trim the right `_`
+  1. Replace `(` `)` `-` to `_`
+  1. Replace to all lowercase
+  1. Trim the right `_`
 
 So can render any field in the key-prefix.; `cs(User-Agent)` can be rendered with `cs_user_agent`.
 
