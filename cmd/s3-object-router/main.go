@@ -58,7 +58,7 @@ func setup() (*router.Router, error) {
 	flag.StringVar(&keyPrefix, "key-prefix", "", "prefix of S3 key")
 	flag.BoolVar(&gzip, "gzip", true, "compress destination object by gzip")
 	flag.StringVar(&replacer, "replacer", "", `wildcard string replacer JSON. e.g. {"foo.bar.*":"foo"}`)
-	flag.StringVar(&parser, "parser", "json", "object record parser. choices are (json|cloudfront), default is json")
+	flag.StringVar(&parser, "parser", "json", "object record parser. choices are json|cloudfront")
 	flag.BoolVar(&timeParse, "time-parse", false, "parse record value as time.Time with -time-format")
 	flag.StringVar(&timeFormat, "time-format", time.RFC3339Nano, "format of time-parse")
 	flag.StringVar(&timeKey, "time-key", router.DefaultTimeKey, "record key name for time-parse")

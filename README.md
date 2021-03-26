@@ -51,7 +51,7 @@ Usage of s3-object-router:
   -no-put
     	do not put to s3
   -parser string
-        object record parser. choices are (json|cloudfront), default is json (default "json")
+        object record parser. choices are json|cloudfront (default "json")
   -replacer string
     	wildcard string replacer JSON. e.g. {"foo.bar.*":"foo"}
   -time-format string
