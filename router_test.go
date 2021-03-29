@@ -53,15 +53,14 @@ func TestMain(t *testing.T) {
 
 func testRoute(t *testing.T, keep bool) {
 	opt := router.Option{
-		Bucket:             "dummy",
-		KeyPrefix:          `foo/{{ replace .tag }}/{{ .time.Format "2006-01-02" }}/`,
-		Gzip:               false,
-		Replacer:           `{"app.*":"app"}`,
-		TimeParse:          true,
-		TimeFormat:         time.RFC3339,
-		PutS3:              false,
-		KeepOriginalName:   keep,
-		KeepOriginalRecord: true,
+		Bucket:           "dummy",
+		KeyPrefix:        `foo/{{ replace .tag }}/{{ .time.Format "2006-01-02" }}/`,
+		Gzip:             false,
+		Replacer:         `{"app.*":"app"}`,
+		TimeParse:        true,
+		TimeFormat:       time.RFC3339,
+		PutS3:            false,
+		KeepOriginalName: keep,
 	}
 	r, err := router.New(&opt)
 	if err != nil {

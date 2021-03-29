@@ -6,7 +6,6 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -22,9 +21,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 )
-
-// LF represents LineFeed \n
-var LF = []byte("\n")
 
 // MaxConcurrency represents maximum concurrency for uploading to S3
 var MaxConcurrency = 10
@@ -150,7 +146,7 @@ func (r *Router) route(src io.Reader, s3url string) (map[destination]buffer, err
 	buf := make([]byte, initialBufSize)
 	scanner.Buffer(buf, maxBufSize)
 
-	dests := make(map[destination]buffer)
+	encs := make(map[destination]encoder)
 
 	for scanner.Scan() {
 		recordBytes := scanner.Bytes()
@@ -174,29 +170,25 @@ func (r *Router) route(src io.Reader, s3url string) (map[destination]buffer, err
 			log.Println("[warn] failed to generate destination", err)
 			continue
 		}
-		body := dests[d]
-		if body == nil {
+		enc := encs[d]
+		if enc == nil {
+			var body buffer
 			if r.option.Gzip {
 				body = newGzipBuffer()
 			} else {
 				body = new(bytes.Buffer)
 			}
+			enc = r.option.newEncoder(body)
 		}
-		if r.option.KeepOriginalRecord {
-			body.Write(recordBytes)
-		} else {
-			bytes, err := json.Marshal(rec)
-			if err != nil {
-				log.Println("[warn] failed to generate json record", err)
-				continue
-			}
-			body.Write(bytes)
-		}
-		body.Write(LF)
-		dests[d] = body
+		enc.Encode(rec, recordBytes)
+		encs[d] = enc
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err
+	}
+	dests := make(map[destination]buffer, len(encs))
+	for d, enc := range encs {
+		dests[d] = enc.Buffer()
 	}
 	return dests, nil
 }
@@ -266,6 +258,11 @@ type record map[string]interface{}
 type buffer interface {
 	Write([]byte) (int, error)
 	Bytes() []byte
+}
+
+type encoder interface {
+	Encode(record, []byte) error
+	Buffer() buffer
 }
 
 type gzBuffer struct {

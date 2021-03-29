@@ -38,8 +38,8 @@ $ s3-object-router \
 Usage of s3-object-router:
   -bucket string
     	destination S3 bucket name
-  -convert-json-record
-        convert the record to JSON format. use if -parser when not "json"
+  -format string
+        convert the s3 object format. choices are json|none (default "none")
   -gzip
     	compress destination object by gzip (default true)
   -keep-original-name
@@ -174,7 +174,7 @@ So can render any field in the key-prefix.; `cs(User-Agent)` can be rendered wit
 
 It also provides an RFC3399-formatted `datetime` field that combines the `date` and `time` fields of CloudFront's standard logs. Use with `-time-parse`,`-time-key`, `-time-format`.
 
-If want to convert the routed S3 object format to JSON, please use `-convert-json-record`.
+If want to convert the routed S3 object format to JSON, please use `-format json`.
 ## LICENSE
 
 MIT

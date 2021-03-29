@@ -14,21 +14,22 @@ var DefaultTimeKey = "time"
 
 // Option represents option values of router
 type Option struct {
-	Bucket             string `json:"bucket,omitempty"`
-	KeyPrefix          string `json:"key_prefix,omitempty"`
-	TimeParse          bool   `json:"time_parse,omitempty"`
-	TimeKey            string `json:"time_key,omitempty"`
-	TimeFormat         string `json:"time_format,omitempty"`
-	LocalTime          bool   `json:"local_time,omitempty"`
-	Gzip               bool   `json:"gzip,omitempty"`
-	Replacer           string `json:"replacer,omitempty"`
-	Parser             string `json:"parser,omitempty"`
-	PutS3              bool   `json:"put_s3,omitempty"`
-	KeepOriginalRecord bool   `json:"keep_original_record,omitempty"`
-	KeepOriginalName   bool   `json:"keep_original_name,omitempty"`
+	Bucket           string `json:"bucket,omitempty"`
+	KeyPrefix        string `json:"key_prefix,omitempty"`
+	TimeParse        bool   `json:"time_parse,omitempty"`
+	TimeKey          string `json:"time_key,omitempty"`
+	TimeFormat       string `json:"time_format,omitempty"`
+	LocalTime        bool   `json:"local_time,omitempty"`
+	Gzip             bool   `json:"gzip,omitempty"`
+	Replacer         string `json:"replacer,omitempty"`
+	Parser           string `json:"parser,omitempty"`
+	PutS3            bool   `json:"put_s3,omitempty"`
+	ObjectFormat     string `json:"object_format,omitempty"`
+	KeepOriginalName bool   `json:"keep_original_name,omitempty"`
 
 	replacer     replacer
 	recordParser recordParser
+	newEncoder   func(buffer) encoder
 	timeParser   timeParser
 }
 
@@ -103,6 +104,14 @@ func (opt *Option) Init() error {
 	}
 	if opt.TimeKey == "" {
 		opt.TimeKey = DefaultTimeKey
+	}
+	switch opt.ObjectFormat {
+	case "", "none":
+		opt.newEncoder = newNoneEncoder
+	case "json":
+		opt.newEncoder = newJSONEncoder
+	default:
+		return errors.New("format must be string any of json|none")
 	}
 	return nil
 }

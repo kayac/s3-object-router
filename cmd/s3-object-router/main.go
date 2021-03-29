@@ -50,9 +50,9 @@ func lambdaHandler(r *router.Router) func(context.Context, events.S3Event) error
 
 func setup() (*router.Router, error) {
 	var (
-		bucket, keyPrefix, replacer, parser                    string
-		timeKey, timeFormat                                    string
-		gzip, timeParse, localTime, noPut, keep, convertRecord bool
+		bucket, keyPrefix, replacer, parser, objFromat string
+		timeKey, timeFormat                            string
+		gzip, timeParse, localTime, noPut, keep        bool
 	)
 	flag.StringVar(&bucket, "bucket", "", "destination S3 bucket name")
 	flag.StringVar(&keyPrefix, "key-prefix", "", "prefix of S3 key")
@@ -65,23 +65,23 @@ func setup() (*router.Router, error) {
 	flag.BoolVar(&localTime, "local-time", false, "set time zone to localtime for parsed time")
 	flag.BoolVar(&noPut, "no-put", false, "do not put to s3")
 	flag.BoolVar(&keep, "keep-original-name", false, "keep original object base name")
-	flag.BoolVar(&convertRecord, "convert-json-record", false, `convert the record to JSON format. use if -parser when not "json"`)
+	flag.StringVar(&objFromat, "format", "none", `convert the s3 object format. choices are json|none`)
 	flag.VisitAll(envToFlag)
 	flag.Parse()
 
 	opt := router.Option{
-		Bucket:             bucket,
-		KeyPrefix:          keyPrefix,
-		Gzip:               gzip,
-		Replacer:           replacer,
-		Parser:             parser,
-		TimeParse:          timeParse,
-		TimeKey:            timeKey,
-		TimeFormat:         timeFormat,
-		LocalTime:          localTime,
-		PutS3:              !noPut,
-		KeepOriginalName:   keep,
-		KeepOriginalRecord: !convertRecord,
+		Bucket:           bucket,
+		KeyPrefix:        keyPrefix,
+		Gzip:             gzip,
+		Replacer:         replacer,
+		Parser:           parser,
+		TimeParse:        timeParse,
+		TimeKey:          timeKey,
+		TimeFormat:       timeFormat,
+		LocalTime:        localTime,
+		PutS3:            !noPut,
+		KeepOriginalName: keep,
+		ObjectFormat:     objFromat,
 	}
 	log.Printf("[debug] option: %#v", opt)
 	return router.New(&opt)
