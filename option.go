@@ -14,25 +14,32 @@ var DefaultTimeKey = "time"
 
 // Option represents option values of router
 type Option struct {
-	Bucket           string
-	KeyPrefix        string
-	TimeParse        bool
-	TimeKey          string
-	TimeFormat       string
-	LocalTime        bool
-	Gzip             bool
-	Replacer         string
-	PutS3            bool
-	KeepOriginalName bool
+	Bucket           string `json:"bucket,omitempty"`
+	KeyPrefix        string `json:"key_prefix,omitempty"`
+	TimeParse        bool   `json:"time_parse,omitempty"`
+	TimeKey          string `json:"time_key,omitempty"`
+	TimeFormat       string `json:"time_format,omitempty"`
+	LocalTime        bool   `json:"local_time,omitempty"`
+	Gzip             bool   `json:"gzip,omitempty"`
+	Replacer         string `json:"replacer,omitempty"`
+	Parser           string `json:"parser,omitempty"`
+	PutS3            bool   `json:"put_s3,omitempty"`
+	ObjectFormat     string `json:"object_format,omitempty"`
+	KeepOriginalName bool   `json:"keep_original_name,omitempty"`
 
-	replacer   replacer
-	timeParser timeParser
+	replacer     replacer
+	recordParser recordParser
+	newEncoder   func(buffer) encoder
+	timeParser   timeParser
 }
 
 type replacer interface {
 	Replace(string) string
 }
 
+type recordParser interface {
+	Parse([]byte, *record) error
+}
 type timeParser struct {
 	layout string
 	loc    *time.Location
@@ -76,6 +83,16 @@ func (opt *Option) Init() error {
 	} else {
 		opt.replacer = strings.NewReplacer() // nop replacer
 	}
+	switch opt.Parser {
+	case "", "json":
+		opt.recordParser = recordParserFunc(func(b []byte, r *record) error {
+			return json.Unmarshal(b, r)
+		})
+	case "cloudfront":
+		opt.recordParser = &cloudfrontParser{}
+	default:
+		return errors.New("parser must be string any of json|cloudfront")
+	}
 	if opt.TimeParse {
 		p := timeParser{layout: opt.TimeFormat}
 		if opt.LocalTime {
@@ -87,6 +104,14 @@ func (opt *Option) Init() error {
 	}
 	if opt.TimeKey == "" {
 		opt.TimeKey = DefaultTimeKey
+	}
+	switch opt.ObjectFormat {
+	case "", "none":
+		opt.newEncoder = newNoneEncoder
+	case "json":
+		opt.newEncoder = newJSONEncoder
+	default:
+		return errors.New("format must be string any of json|none")
 	}
 	return nil
 }
