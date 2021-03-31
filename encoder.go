@@ -2,7 +2,7 @@ package router
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 )
 
 // LF represents LineFeed \n
@@ -44,8 +44,7 @@ func (e *jsonEncoder) Encode(rec record, _ []byte) error {
 
 	bytes, err := json.Marshal(rec)
 	if err != nil {
-		log.Println("[warn] failed to generate json record", err)
-		return err
+		return fmt.Errorf("json marshal: %w", err)
 	}
 	if _, err := e.body.Write(bytes); err != nil {
 		return err
