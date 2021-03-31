@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"flag"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -14,6 +15,17 @@ import (
 
 	router "github.com/kayac/s3-object-router"
 )
+
+var updateFlag = flag.Bool("update", false, "update golden files")
+
+func TestMain(t *testing.T) {
+	flag.Parse()
+	var b bytes.Buffer
+	w := gzip.NewWriter(&b)
+	w.Write(testSrcBytes)
+	w.Close()
+	testGzippedSrcBytes = b.Bytes()
+}
 
 type testParserConfig struct {
 	router.Option

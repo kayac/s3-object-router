@@ -2,8 +2,6 @@ package router_test
 
 import (
 	"bytes"
-	"compress/gzip"
-	"flag"
 	"io"
 	"strings"
 	"testing"
@@ -38,17 +36,6 @@ func concat(strs ...string) string {
 		b.WriteString("\n")
 	}
 	return b.String()
-}
-
-var updateFlag = flag.Bool("update", false, "update golden files")
-
-func TestMain(t *testing.T) {
-	flag.Parse()
-	var b bytes.Buffer
-	w := gzip.NewWriter(&b)
-	w.Write(testSrcBytes)
-	w.Close()
-	testGzippedSrcBytes = b.Bytes()
 }
 
 func testRoute(t *testing.T, keep bool) {
