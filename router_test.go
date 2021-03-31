@@ -84,8 +84,8 @@ func testRouter(t *testing.T, caseDirName string) {
 			io.Copy(w, sfp)
 			sfp.Close()
 			gw.Close()
-			sfps[basename] = io.NopCloser(&raw)
-			sfps[basename+"_gzipped"] = io.NopCloser(&gzipped)
+			sfps[basename] = ioutil.NopCloser(&raw)
+			sfps[basename+"_gzipped"] = ioutil.NopCloser(&gzipped)
 		} else {
 			sfps[basename] = sfp
 		}
