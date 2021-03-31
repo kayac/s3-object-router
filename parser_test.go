@@ -1,6 +1,8 @@
 package router_test
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"io"
 	"io/ioutil"
@@ -15,7 +17,8 @@ import (
 
 type testParserConfig struct {
 	router.Option
-	Sources []string `json:"sources"`
+	Sources        []string `json:"sources"`
+	EnableGzipTest bool     `json:"enable_gzip_test"`
 }
 
 func TestParser(t *testing.T) {
@@ -61,20 +64,32 @@ func testParser(t *testing.T, caseDirName string) {
 	}()
 	for _, src := range config.Sources {
 		path := filepath.Join("testdata", src)
+		basename := filepath.Base(path)
 		sfp, err := os.Open(path)
 		if err != nil {
 			t.Error(err)
 			t.FailNow()
 		}
-		sfps[path] = sfp
+		if config.EnableGzipTest {
+			var raw, gzipped bytes.Buffer
+			gw := gzip.NewWriter(&gzipped)
+			w := io.MultiWriter(&raw, gw)
+			io.Copy(w, sfp)
+			sfp.Close()
+			gw.Close()
+			sfps[basename] = io.NopCloser(&raw)
+			sfps[basename+"_gzipped"] = io.NopCloser(&gzipped)
+		} else {
+			sfps[basename] = sfp
+		}
 	}
-	for path, sfp := range sfps {
+	for name, sfp := range sfps {
 		res, err := router.DoTestRoute(r, sfp, "s3://example-bucket/path/to/example-object")
 		if err != nil {
 			t.Error(err)
 			continue
 		}
-		goldenFile := filepath.Join("testdata", caseDirName, filepath.Base(path)+".golden")
+		goldenFile := filepath.Join("testdata", caseDirName, name+".golden")
 		if *updateFlag {
 			writeParserGolden(t, goldenFile, res)
 		}
@@ -83,7 +98,7 @@ func testParser(t *testing.T, caseDirName string) {
 			t.Error("unexpected routed data")
 			for u, expectedContent := range expected {
 				if expectedContent != res[u] {
-					t.Errorf("expected %s got %s", expectedContent, res[u])
+					t.Errorf("%s:expected %s got %s", u, expectedContent, res[u])
 				}
 			}
 		}
