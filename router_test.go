@@ -20,20 +20,15 @@ var updateFlag = flag.Bool("update", false, "update golden files")
 
 func TestMain(t *testing.T) {
 	flag.Parse()
-	var b bytes.Buffer
-	w := gzip.NewWriter(&b)
-	w.Write(testSrcBytes)
-	w.Close()
-	testGzippedSrcBytes = b.Bytes()
 }
 
-type testParserConfig struct {
+type testRouterConfig struct {
 	router.Option
 	Sources        []string `json:"sources"`
 	EnableGzipTest bool     `json:"enable_gzip_test"`
 }
 
-func TestParser(t *testing.T) {
+func TestRouter(t *testing.T) {
 	cases, err := ioutil.ReadDir("testdata")
 	if err != nil {
 		t.Logf("can not read testdata:%s", err)
@@ -44,12 +39,12 @@ func TestParser(t *testing.T) {
 			continue
 		}
 		t.Run(c.Name(), func(t *testing.T) {
-			testParser(t, c.Name())
+			testRouter(t, c.Name())
 		})
 	}
 }
 
-func testParser(t *testing.T, caseDirName string) {
+func testRouter(t *testing.T, caseDirName string) {
 	fp, err := os.Open(filepath.Join("testdata", caseDirName, "config.json"))
 	if err != nil {
 		t.Logf("can not open test config:%s", err)
@@ -57,9 +52,9 @@ func testParser(t *testing.T, caseDirName string) {
 	}
 	defer fp.Close()
 	decoder := json.NewDecoder(fp)
-	var config testParserConfig
+	var config testRouterConfig
 	if err := decoder.Decode(&config); err != nil {
-		t.Logf("can not parse test config:%s", err)
+		t.Logf("can not route test config:%s", err)
 		t.FailNow()
 	}
 
@@ -103,9 +98,9 @@ func testParser(t *testing.T, caseDirName string) {
 		}
 		goldenFile := filepath.Join("testdata", caseDirName, name+".golden")
 		if *updateFlag {
-			writeParserGolden(t, goldenFile, res)
+			writeRouterGolden(t, goldenFile, res)
 		}
-		expected := readParserGolden(t, goldenFile)
+		expected := readRouterGolden(t, goldenFile)
 		if !reflect.DeepEqual(expected, res) {
 			t.Error("unexpected routed data")
 			for u, expectedContent := range expected {
@@ -118,10 +113,10 @@ func testParser(t *testing.T, caseDirName string) {
 }
 
 const (
-	parserGoldenBoundary = "----s3-object-router-parser-test----"
+	routerGoldenBoundary = "----s3-object-router-test----"
 )
 
-func writeParserGolden(t *testing.T, goldenFile string, res map[string]string) {
+func writeRouterGolden(t *testing.T, goldenFile string, res map[string]string) {
 	t.Helper()
 	fp, err := os.OpenFile(
 		goldenFile,
@@ -134,7 +129,7 @@ func writeParserGolden(t *testing.T, goldenFile string, res map[string]string) {
 	}
 	defer fp.Close()
 	w := multipart.NewWriter(fp)
-	w.SetBoundary(parserGoldenBoundary)
+	w.SetBoundary(routerGoldenBoundary)
 	for dest, content := range res {
 		if err := w.WriteField(dest, content); err != nil {
 			t.Logf("can not write golden data: %s", err)
@@ -144,7 +139,7 @@ func writeParserGolden(t *testing.T, goldenFile string, res map[string]string) {
 	w.Close()
 }
 
-func readParserGolden(t *testing.T, goldenFile string) map[string]string {
+func readRouterGolden(t *testing.T, goldenFile string) map[string]string {
 	t.Helper()
 	fp, err := os.Open(goldenFile)
 	res := map[string]string{}
@@ -153,7 +148,7 @@ func readParserGolden(t *testing.T, goldenFile string) map[string]string {
 		t.FailNow()
 	}
 	defer fp.Close()
-	r := multipart.NewReader(fp, parserGoldenBoundary)
+	r := multipart.NewReader(fp, routerGoldenBoundary)
 	for {
 		part, err := r.NextPart()
 		if err == io.EOF {

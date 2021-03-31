@@ -1,4 +1,4 @@
-------s3-object-router-parser-test----
+------s3-object-router-test----
 Content-Disposition: form-data; name="s3://dummy/foo/app/example-object"
 
 {"tag":"app.info","message":"[INFO] app","time":"2020-08-20T15:42:02+09:00"}
@@ -6,14 +6,14 @@ Content-Disposition: form-data; name="s3://dummy/foo/app/example-object"
 {"tag":"app.warn","message":"[WARN] app","time":"2020-08-20T15:43:11+09:00"}
 {"tag":"app.warn","message":"[WARN] app","time":"2020-08-21T15:43:11+09:00"}
 
-------s3-object-router-parser-test----
+------s3-object-router-test----
 Content-Disposition: form-data; name="s3://dummy/foo/batch.info/example-object"
 
 {"tag":"batch.info","message":"[INFO] batch","time":"2020-08-19T15:42:02+09:00"}
 
-------s3-object-router-parser-test----
+------s3-object-router-test----
 Content-Disposition: form-data; name="s3://dummy/foo/batch.warn/example-object"
 
 {"tag":"batch.warn","message":"[WARN] batch","time":"2020-08-20T15:43:11+09:00"}
 
-------s3-object-router-parser-test------
+------s3-object-router-test------
