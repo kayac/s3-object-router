@@ -2,6 +2,7 @@ package router
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -20,6 +21,7 @@ type Option struct {
 	TimeKey          string `json:"time_key,omitempty"`
 	TimeFormat       string `json:"time_format,omitempty"`
 	LocalTime        bool   `json:"local_time,omitempty"`
+	TimeZone         string `json:"timezone,omitempty"`
 	Gzip             bool   `json:"gzip,omitempty"`
 	Replacer         string `json:"replacer,omitempty"`
 	Parser           string `json:"parser,omitempty"`
@@ -95,9 +97,16 @@ func (opt *Option) Init() error {
 	}
 	if opt.TimeParse {
 		p := timeParser{layout: opt.TimeFormat}
-		if opt.LocalTime {
+		switch {
+		case opt.LocalTime:
 			p.loc = time.Local
-		} else {
+		case opt.TimeZone != "":
+			var err error
+			p.loc, err = time.LoadLocation(opt.TimeZone)
+			if err != nil {
+				return fmt.Errorf("timezone is invalid, %w", err)
+			}
+		default:
 			p.loc = time.UTC
 		}
 		opt.timeParser = p
