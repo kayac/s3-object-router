@@ -1,6 +1,6 @@
 {
     "bucket": "dummy",
-    "key_prefix": "foo/{{ replace .x_edge_location }}/{{ .datetime.Format `2006-01-02` }}/",
+    "key_prefix": "foo/{{ replace .x_edge_location }}/{{ .datetime.Format `2006-01-02/15` }}/",
     "gzip": false,
     "parser": "cloudfront",
     "time_parse": true,
@@ -8,6 +8,7 @@
     "time_format": "2006-01-02T15:04:05Z07:00",
     "put_s3": false,
     "keep_original_name": false,
+    "timezone":"Asia/Tokyo",
     "object_format": "json",
     "sources":[
         "cloudfront/example"

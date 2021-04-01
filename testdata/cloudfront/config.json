@@ -1,6 +1,6 @@
 {
     "bucket": "dummy",
-    "key_prefix": "foo/{{ replace .x_edge_location }}/{{ .datetime.Format `2006-01-02` }}/",
+    "key_prefix": "foo/{{ replace .x_edge_location }}/{{ .datetime.Format `2006-01-02/15` }}/",
     "gzip": false,
     "parser": "cloudfront",
     "time_parse": true,

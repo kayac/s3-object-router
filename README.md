@@ -60,6 +60,8 @@ Usage of s3-object-router:
     	record key name for time-parse (default "time")
   -time-parse
     	parse record value as time.Time with -time-format
+  -time-zone string
+        set time zone to specified one for parsed time. e.g. "America/Los_Angeles" if use with -local-time,  -local-time takes precedence
 ```
 
 ### as AWS Lambda function
