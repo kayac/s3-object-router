@@ -51,7 +51,7 @@ func lambdaHandler(r *router.Router) func(context.Context, events.S3Event) error
 func setup() (*router.Router, error) {
 	var (
 		bucket, keyPrefix, replacer, parser, objFromat string
-		timeKey, timeFormat                            string
+		timeKey, timeFormat, timeZone                  string
 		gzip, timeParse, localTime, noPut, keep        bool
 	)
 	flag.StringVar(&bucket, "bucket", "", "destination S3 bucket name")
@@ -63,6 +63,7 @@ func setup() (*router.Router, error) {
 	flag.StringVar(&timeFormat, "time-format", time.RFC3339Nano, "format of time-parse")
 	flag.StringVar(&timeKey, "time-key", router.DefaultTimeKey, "record key name for time-parse")
 	flag.BoolVar(&localTime, "local-time", false, "set time zone to localtime for parsed time")
+	flag.StringVar(&timeZone, "time-zone", "", `set time zone to specified one for parsed time. e.g. "America/Los_Angeles" if use with -local-time,  -local-time takes precedence`)
 	flag.BoolVar(&noPut, "no-put", false, "do not put to s3")
 	flag.BoolVar(&keep, "keep-original-name", false, "keep original object base name")
 	flag.StringVar(&objFromat, "format", "none", `convert the s3 object format. choices are json|none`)
@@ -79,6 +80,7 @@ func setup() (*router.Router, error) {
 		TimeKey:          timeKey,
 		TimeFormat:       timeFormat,
 		LocalTime:        localTime,
+		TimeZone:         timeZone,
 		PutS3:            !noPut,
 		KeepOriginalName: keep,
 		ObjectFormat:     objFromat,
