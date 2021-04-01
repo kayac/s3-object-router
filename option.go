@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	_ "time/tzdata"
 
 	"github.com/kayac/s3-object-router/wildcard"
 	"github.com/mickep76/mapslice-json"
