@@ -3,103 +3,168 @@ package router_test
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"flag"
 	"io"
-	"strings"
+	"io/ioutil"
+	"mime/multipart"
+	"os"
+	"path/filepath"
+	"reflect"
 	"testing"
-	"time"
 
 	router "github.com/kayac/s3-object-router"
 )
-
-var testRecords = []string{
-	`{"tag":"app.info","message":"[INFO] app","time":"2020-08-20T15:42:02+09:00"}`,
-	`{"tag":"app.error","message":"[ERROR] app","time":"2020-08-20T16:42:02+09:00"}`,
-	`{"tag":"batch.info","message":"[INFO] batch","time":"2020-08-19T15:42:02+09:00"}`,
-	`{"tag":"batch.warn","message":"[WARN] batch","time":"2020-08-20T15:43:11+09:00"}`,
-	`{"tag":"app.warn","message":"[WARN] app","time":"2020-08-20T15:43:11+09:00"}`,
-	`{"tag":"app.warn","message":"[WARN] app","time":"2020-08-21T15:43:11+09:00"}`,
-}
-
-var testSrcBytes = []byte(strings.Join(testRecords, "\n"))
-var testGzippedSrcBytes []byte
-
-var expectedRecords = map[string]string{
-	"s3://dummy/foo/app/2020-08-20/":        concat(testRecords[0], testRecords[1], testRecords[4]),
-	"s3://dummy/foo/app/2020-08-21/":        concat(testRecords[5]),
-	"s3://dummy/foo/batch.info/2020-08-19/": concat(testRecords[2]),
-	"s3://dummy/foo/batch.warn/2020-08-20/": concat(testRecords[3]),
-}
-
-func concat(strs ...string) string {
-	var b strings.Builder
-	for _, s := range strs {
-		b.WriteString(s)
-		b.WriteString("\n")
-	}
-	return b.String()
-}
 
 var updateFlag = flag.Bool("update", false, "update golden files")
 
 func TestMain(t *testing.T) {
 	flag.Parse()
-	var b bytes.Buffer
-	w := gzip.NewWriter(&b)
-	w.Write(testSrcBytes)
-	w.Close()
-	testGzippedSrcBytes = b.Bytes()
 }
 
-func testRoute(t *testing.T, keep bool) {
-	opt := router.Option{
-		Bucket:           "dummy",
-		KeyPrefix:        `foo/{{ replace .tag }}/{{ .time.Format "2006-01-02" }}/`,
-		Gzip:             false,
-		Replacer:         `{"app.*":"app"}`,
-		TimeParse:        true,
-		TimeFormat:       time.RFC3339,
-		PutS3:            false,
-		KeepOriginalName: keep,
-	}
-	r, err := router.New(&opt)
+type testRouterConfig struct {
+	router.Option
+	Sources        []string `json:"sources"`
+	EnableGzipTest bool     `json:"enable_gzip_test"`
+}
+
+func TestRouter(t *testing.T) {
+	cases, err := ioutil.ReadDir("testdata")
 	if err != nil {
-		t.Error(err)
+		t.Logf("can not read testdata:%s", err)
+		t.FailNow()
+	}
+	for _, c := range cases {
+		if !c.IsDir() {
+			continue
+		}
+		t.Run(c.Name(), func(t *testing.T) {
+			testRouter(t, c.Name())
+		})
+	}
+}
+
+func testRouter(t *testing.T, caseDirName string) {
+	fp, err := os.Open(filepath.Join("testdata", caseDirName, "config.json"))
+	if err != nil {
+		t.Logf("can not open test config:%s", err)
+		t.FailNow()
+	}
+	defer fp.Close()
+	decoder := json.NewDecoder(fp)
+	var config testRouterConfig
+	if err := decoder.Decode(&config); err != nil {
+		t.Logf("can not route test config:%s", err)
+		t.FailNow()
 	}
 
-	for _, src := range []io.Reader{
-		bytes.NewReader(testSrcBytes),
-		bytes.NewReader(testGzippedSrcBytes),
-	} {
-		res, err := router.DoTestRoute(r, src, "s3://example-bucket/path/to/example-object")
+	r, err := router.New(&config.Option)
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+	sfps := make(map[string]io.ReadCloser, len(config.Sources))
+	defer func() {
+		for _, sfp := range sfps {
+			sfp.Close()
+		}
+	}()
+	for _, src := range config.Sources {
+		path := filepath.Join("testdata", src)
+		basename := filepath.Base(path)
+		sfp, err := os.Open(path)
+		if err != nil {
+			t.Error(err)
+			t.FailNow()
+		}
+		if config.EnableGzipTest {
+			var raw, gzipped bytes.Buffer
+			gw := gzip.NewWriter(&gzipped)
+			w := io.MultiWriter(&raw, gw)
+			io.Copy(w, sfp)
+			sfp.Close()
+			gw.Close()
+			sfps[basename] = ioutil.NopCloser(&raw)
+			sfps[basename+"_gzipped"] = ioutil.NopCloser(&gzipped)
+		} else {
+			sfps[basename] = sfp
+		}
+	}
+	for name, sfp := range sfps {
+		res, err := router.DoTestRoute(r, sfp, "s3://example-bucket/path/to/example-object")
 		if err != nil {
 			t.Error(err)
 			continue
 		}
-		if len(res) != len(expectedRecords) {
-			t.Errorf("unexpected routed records num")
-			continue
+		goldenFile := filepath.Join("testdata", caseDirName, name+".golden")
+		if *updateFlag {
+			writeRouterGolden(t, goldenFile, res)
 		}
-		var name string
-		if keep {
-			name = "example-object"
-		} else {
-			// sha256sum of s3://example-bucket/path/to/example-object
-			name = "f7ec2b7eb299d99468ff797fba836fa6cfc4389e21562f50a7d41ddcf43bfd01"
-		}
-		for path, expected := range expectedRecords {
-			u := path + name
-			if expected != res[u] {
-				t.Errorf("expected %s got %s", expected, res[u])
+		expected := readRouterGolden(t, goldenFile)
+		if !reflect.DeepEqual(expected, res) {
+			t.Error("unexpected routed data")
+			for u, expectedContent := range expected {
+				if expectedContent != res[u] {
+					t.Errorf("%s:expected %s got %s", u, expectedContent, res[u])
+				}
 			}
 		}
 	}
 }
 
-func TestRouteKeepName(t *testing.T) {
-	testRoute(t, false)
+const (
+	routerGoldenBoundary = "----s3-object-router-test----"
+)
+
+func writeRouterGolden(t *testing.T, goldenFile string, res map[string]string) {
+	t.Helper()
+	fp, err := os.OpenFile(
+		goldenFile,
+		os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
+		0644,
+	)
+	if err != nil {
+		t.Logf("can not create golden file: %s", err)
+		t.FailNow()
+	}
+	defer fp.Close()
+	w := multipart.NewWriter(fp)
+	w.SetBoundary(routerGoldenBoundary)
+	for dest, content := range res {
+		if err := w.WriteField(dest, content); err != nil {
+			t.Logf("can not write golden data: %s", err)
+			t.FailNow()
+		}
+	}
+	w.Close()
 }
 
-func TestRoute(t *testing.T) {
-	testRoute(t, true)
+func readRouterGolden(t *testing.T, goldenFile string) map[string]string {
+	t.Helper()
+	fp, err := os.Open(goldenFile)
+	res := map[string]string{}
+	if err != nil {
+		t.Logf("can not open golden file: %s", err)
+		t.FailNow()
+	}
+	defer fp.Close()
+	r := multipart.NewReader(fp, routerGoldenBoundary)
+	for {
+		part, err := r.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Logf("can not get golden next part: %s", err)
+			t.FailNow()
+		}
+		content, err := ioutil.ReadAll(part)
+		if err != nil {
+			t.Logf("can not read golden part: %s", err)
+			t.FailNow()
+		}
+		res[part.FormName()] = string(content)
+		part.Close()
+	}
+	return res
 }
