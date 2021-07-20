@@ -181,7 +181,7 @@ func (r *Router) route(src io.Reader, s3url string) (map[destination]buffer, err
 			enc = r.option.newEncoder(body)
 		}
 		if err := enc.Encode(rec, recordBytes); err != nil {
-			log.Printf("[warn] failed to encode %s record: %v\n", err, rec)
+			log.Printf("[warn] failed to encode record %s: %#v\n", err, rec)
 			continue
 		}
 		encs[d] = enc

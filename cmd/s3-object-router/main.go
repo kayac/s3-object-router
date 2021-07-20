@@ -41,6 +41,7 @@ func lambdaHandler(r *router.Router) func(context.Context, events.S3Event) error
 				Path:   record.S3.Object.URLDecodedKey,
 			}
 			if err := r.Run(ctx, u.String()); err != nil {
+				log.Println("[error]", err)
 				return err
 			}
 		}
