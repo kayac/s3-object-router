@@ -87,14 +87,19 @@ func (r *Router) Run(ctx context.Context, s3url string) error {
 		return err
 	}
 	defer src.Close()
-	dests, err := r.route(src, s3url)
+	keyBase := r.genKeyBase(s3url)
+	meta := map[string]*string{
+		MetaHeaderName: aws.String(s3url),
+	}
+	return r.Route(ctx, src, keyBase, meta)
+}
+
+func (r *Router) Route(ctx context.Context, src io.Reader, keyBase string, meta map[string]*string) error {
+	dests, err := r.route(src, keyBase)
 	if err != nil {
 		return err
 	}
 
-	meta := map[string]*string{
-		MetaHeaderName: aws.String(s3url),
-	}
 	eg := errgroup.Group{}
 	for dest, buf := range dests {
 		dest, buf := dest, buf
@@ -127,7 +132,7 @@ func unGzip(src io.Reader) (io.Reader, error) {
 	}
 }
 
-func (r *Router) genKey(s3url string) string {
+func (r *Router) genKeyBase(s3url string) string {
 	if r.option.KeepOriginalName {
 		return path.Base(s3url)
 	}
@@ -135,8 +140,7 @@ func (r *Router) genKey(s3url string) string {
 	return fmt.Sprintf("%x", sum)
 }
 
-func (r *Router) route(src io.Reader, s3url string) (map[destination]buffer, error) {
-	key := r.genKey(s3url)
+func (r *Router) route(src io.Reader, keyBase string) (map[destination]buffer, error) {
 	src, err := unGzip(src)
 	if err != nil {
 		return nil, err
@@ -165,7 +169,7 @@ func (r *Router) route(src io.Reader, s3url string) (map[destination]buffer, err
 				}
 			}
 		}
-		d, err := r.genDestination(rec, key)
+		d, err := r.genDestination(rec, keyBase)
 		if err != nil {
 			log.Println("[warn] failed to generate destination", err)
 			continue
