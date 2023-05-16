@@ -154,13 +154,17 @@ func (r *Router) route(src io.Reader, keyBase string) (map[destination]buffer, e
 
 	for scanner.Scan() {
 		recordBytes := scanner.Bytes()
-		rec, err := recordParser.Parse(recordBytes)
+		recs, err := recordParser.Parse(recordBytes)
 		if err != nil {
 			if err != SkipLine {
 				log.Println("[warn] failed to parse record", err)
 			}
 			continue
 		}
+		if len(recs) == 0 {
+			continue
+		}
+		rec := recs[0]
 		if r.option.TimeParse {
 			if ts, ok := rec.parsed[r.option.TimeKey].(string); ok {
 				rec.parsed[r.option.TimeKey], err = r.option.timeParser.Parse(ts)
