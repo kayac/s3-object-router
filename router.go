@@ -43,7 +43,7 @@ type Router struct {
 	option *Option
 	sem    *semaphore.Weighted
 
-	genKeyPrefix func(record) (string, error)
+	genKeyPrefix func(*record) (string, error)
 }
 
 // New creates a new router
@@ -69,9 +69,9 @@ func New(opt *Option) (*Router, error) {
 		s3:     s3.New(sess),
 		option: opt,
 		sem:    semaphore.NewWeighted(int64(MaxConcurrency)),
-		genKeyPrefix: func(r record) (string, error) {
+		genKeyPrefix: func(r *record) (string, error) {
 			var b strings.Builder
-			if err := tmpl.Execute(&b, r); err != nil {
+			if err := tmpl.Execute(&b, r.parsed); err != nil {
 				return "", err
 			}
 			return b.String(), nil
@@ -154,16 +154,16 @@ func (r *Router) route(src io.Reader, keyBase string) (map[destination]buffer, e
 
 	for scanner.Scan() {
 		recordBytes := scanner.Bytes()
-		var rec record
-		if err := recordParser.Parse(recordBytes, &rec); err != nil {
+		rec, err := recordParser.Parse(recordBytes)
+		if err != nil {
 			if err != SkipLine {
 				log.Println("[warn] failed to parse record", err)
 			}
 			continue
 		}
 		if r.option.TimeParse {
-			if ts, ok := rec[r.option.TimeKey].(string); ok {
-				rec[r.option.TimeKey], err = r.option.timeParser.Parse(ts)
+			if ts, ok := rec.parsed[r.option.TimeKey].(string); ok {
+				rec.parsed[r.option.TimeKey], err = r.option.timeParser.Parse(ts)
 				if err != nil {
 					log.Println("[warn] failed to parse time", err)
 				}
@@ -176,15 +176,9 @@ func (r *Router) route(src io.Reader, keyBase string) (map[destination]buffer, e
 		}
 		enc := encs[d]
 		if enc == nil {
-			var body buffer
-			if r.option.Gzip {
-				body = newGzipBuffer()
-			} else {
-				body = new(bytes.Buffer)
-			}
-			enc = r.option.newEncoder(body)
+			enc = r.option.newEncoder()
 		}
-		if err := enc.Encode(rec, recordBytes); err != nil {
+		if err := enc.Encode(rec); err != nil {
 			log.Printf("[warn] failed to encode record %s: %#v\n", err, rec)
 			continue
 		}
@@ -227,7 +221,7 @@ func (r *Router) getS3Object(ctx context.Context, s3url string) (io.ReadCloser, 
 	return out.Body, nil
 }
 
-func (r *Router) genDestination(rec record, name string) (destination, error) {
+func (r *Router) genDestination(rec *record, name string) (destination, error) {
 	prefix, err := r.genKeyPrefix(rec)
 	if err != nil {
 		return destination{}, err
@@ -260,35 +254,16 @@ func (r *Router) putToS3(ctx context.Context, dest destination, body io.ReadSeek
 	return err
 }
 
-type record map[string]interface{}
-
-type buffer interface {
-	Write([]byte) (int, error)
-	Bytes() []byte
+type record struct {
+	parsed map[string]interface{}
+	raw    []byte
 }
 
-type encoder interface {
-	Encode(record, []byte) error
-	Buffer() buffer
-}
-
-type gzBuffer struct {
-	bytes.Buffer
-	gz *gzip.Writer
-}
-
-func newGzipBuffer() *gzBuffer {
-	buf := &gzBuffer{}
-	buf.gz = gzip.NewWriter(&buf.Buffer)
-	return buf
-}
-
-func (buf *gzBuffer) Write(p []byte) (int, error) {
-	return buf.gz.Write(p)
-}
-
-func (buf *gzBuffer) Close() error {
-	return buf.gz.Close()
+func newRecord(raw []byte) *record {
+	return &record{
+		parsed: make(map[string]interface{}),
+		raw:    raw,
+	}
 }
 
 type destination struct {

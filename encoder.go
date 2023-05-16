@@ -8,6 +8,11 @@ import (
 // LF represents LineFeed \n
 var LF = []byte("\n")
 
+type encoder interface {
+	Encode(*record) error
+	Buffer() buffer
+}
+
 type noneEncoder struct {
 	body buffer
 }
@@ -18,8 +23,8 @@ func newNoneEncoder(body buffer) encoder {
 	}
 }
 
-func (e *noneEncoder) Encode(_ record, recordBytes []byte) error {
-	if _, err := e.body.Write(recordBytes); err != nil {
+func (e *noneEncoder) Encode(rec *record) error {
+	if _, err := e.body.Write(rec.raw); err != nil {
 		return err
 	}
 	_, err := e.body.Write(LF)
@@ -40,9 +45,8 @@ func newJSONEncoder(body buffer) encoder {
 	}
 }
 
-func (e *jsonEncoder) Encode(rec record, _ []byte) error {
-
-	bytes, err := json.Marshal(rec)
+func (e *jsonEncoder) Encode(rec *record) error {
+	bytes, err := json.Marshal(rec.parsed)
 	if err != nil {
 		return fmt.Errorf("json marshal: %w", err)
 	}

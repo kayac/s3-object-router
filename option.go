@@ -1,6 +1,7 @@
 package router
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -32,7 +33,8 @@ type Option struct {
 
 	replacer     replacer
 	recordParser recordParser
-	newEncoder   func(buffer) encoder
+	newEncoder   func() encoder
+	newBuffer    func() buffer
 	timeParser   timeParser
 }
 
@@ -41,7 +43,7 @@ type replacer interface {
 }
 
 type recordParser interface {
-	Parse([]byte, *record) error
+	Parse([]byte) (*record, error)
 }
 type timeParser struct {
 	layout string
@@ -88,8 +90,12 @@ func (opt *Option) Init() error {
 	}
 	switch opt.Parser {
 	case "", "json":
-		opt.recordParser = recordParserFunc(func(b []byte, r *record) error {
-			return json.Unmarshal(b, r)
+		opt.recordParser = recordParserFunc(func(b []byte) (*record, error) {
+			r := newRecord(b)
+			if err := json.Unmarshal(b, &(r.parsed)); err != nil {
+				return nil, err
+			}
+			return r, nil
 		})
 	case "cloudfront":
 		opt.recordParser = &cloudfrontParser{}
@@ -115,11 +121,24 @@ func (opt *Option) Init() error {
 	if opt.TimeKey == "" {
 		opt.TimeKey = DefaultTimeKey
 	}
+
+	if opt.Gzip {
+		opt.newBuffer = newGzipBuffer
+	} else {
+		opt.newBuffer = func() buffer {
+			return new(bytes.Buffer)
+		}
+	}
+
 	switch opt.ObjectFormat {
 	case "", "none":
-		opt.newEncoder = newNoneEncoder
+		opt.newEncoder = func() encoder {
+			return newNoneEncoder(opt.newBuffer())
+		}
 	case "json":
-		opt.newEncoder = newJSONEncoder
+		opt.newEncoder = func() encoder {
+			return newJSONEncoder(opt.newBuffer())
+		}
 	default:
 		return errors.New("format must be string any of json|none")
 	}
