@@ -1,0 +1,17 @@
+{
+    "bucket": "dummy",
+    "key_prefix": "foo/{{ replace .tag }}/{{ .datetime.Format `2006-01-02` }}/",
+    "gzip": false,
+    "replacer": "{\"app.*\":\"app\"}",
+    "time_parse": true,
+    "time_key": "datetime",
+    "time_format": "2006-01-02T15:04:05Z07:00",
+    "put_s3": false,
+    "keep_original_name": true,
+    "parser": "json.Records[]",
+    "object_format": "json",
+    "sources": [
+        "json.Records/example_log"
+    ],
+    "enable_gzip_test": true
+}

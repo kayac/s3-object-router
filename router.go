@@ -164,29 +164,31 @@ func (r *Router) route(src io.Reader, keyBase string) (map[destination]buffer, e
 		if len(recs) == 0 {
 			continue
 		}
-		rec := recs[0]
-		if r.option.TimeParse {
-			if ts, ok := rec.parsed[r.option.TimeKey].(string); ok {
-				rec.parsed[r.option.TimeKey], err = r.option.timeParser.Parse(ts)
-				if err != nil {
-					log.Println("[warn] failed to parse time", err)
+	RECORD:
+		for _, rec := range recs {
+			if r.option.TimeParse {
+				if ts, ok := rec.parsed[r.option.TimeKey].(string); ok {
+					rec.parsed[r.option.TimeKey], err = r.option.timeParser.Parse(ts)
+					if err != nil {
+						log.Println("[warn] failed to parse time", err)
+					}
 				}
 			}
+			d, err := r.genDestination(rec, keyBase)
+			if err != nil {
+				log.Println("[warn] failed to generate destination", err)
+				continue RECORD
+			}
+			enc := encs[d]
+			if enc == nil {
+				enc = r.option.newEncoder()
+			}
+			if err := enc.Encode(rec); err != nil {
+				log.Printf("[warn] failed to encode record %s: %#v\n", err, rec)
+				continue RECORD
+			}
+			encs[d] = enc
 		}
-		d, err := r.genDestination(rec, keyBase)
-		if err != nil {
-			log.Println("[warn] failed to generate destination", err)
-			continue
-		}
-		enc := encs[d]
-		if enc == nil {
-			enc = r.option.newEncoder()
-		}
-		if err := enc.Encode(rec); err != nil {
-			log.Printf("[warn] failed to encode record %s: %#v\n", err, rec)
-			continue
-		}
-		encs[d] = enc
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err
