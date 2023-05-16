@@ -10,8 +10,9 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
-	"reflect"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 
 	router "github.com/kayac/s3-object-router"
 )
@@ -101,13 +102,8 @@ func testRouter(t *testing.T, caseDirName string) {
 			writeRouterGolden(t, goldenFile, res)
 		}
 		expected := readRouterGolden(t, goldenFile)
-		if !reflect.DeepEqual(expected, res) {
-			t.Error("unexpected routed data")
-			for u, expectedContent := range expected {
-				if expectedContent != res[u] {
-					t.Errorf("%s:expected %s got %s", u, expectedContent, res[u])
-				}
-			}
+		if d := cmp.Diff(expected, res); d != "" {
+			t.Error("unexpected routed data:", d)
 		}
 	}
 }
