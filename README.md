@@ -51,7 +51,7 @@ Usage of s3-object-router:
   -no-put
     	do not put to s3
   -parser string
-        object record parser. choices are json|cloudfront (default "json")
+        object record parser. choices are json|cloudfront|json.Records (default "json")
   -replacer string
     	wildcard string replacer JSON. e.g. {"foo.bar.*":"foo"}
   -time-format string
@@ -137,6 +137,18 @@ The first line will be routed to `path/to/app.normal/`, the second and third lin
 ### record parser
 
 `-parser` specifies the Parser for the object record. In defualt, `json` is selected, and the S3 object parse as one JSON object for each record.
+
+#### `json.Records`
+
+If "json.Records" is selected, the S3 object will be parsed as `Records[]` JSON array.
+
+```json
+{"Records":[{...},{...}]}
+```
+
+This is useful for CloudTrail logs.
+
+`-parser=json.Records` with `-format=none` does not work. Use `-format=json` instead.
 
 #### `cloudfront`
 

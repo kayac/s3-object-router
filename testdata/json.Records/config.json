@@ -8,7 +8,7 @@
     "time_format": "2006-01-02T15:04:05Z07:00",
     "put_s3": false,
     "keep_original_name": true,
-    "parser": "json.Records[]",
+    "parser": "json.Records",
     "object_format": "json",
     "sources": [
         "json.Records/example_log"

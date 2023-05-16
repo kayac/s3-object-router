@@ -97,7 +97,7 @@ func (opt *Option) Init() error {
 			}
 			return []*record{r}, nil
 		})
-	case "json.Records[]":
+	case "json.Records":
 		opt.recordParser = recordParserFunc(func(b []byte) ([]*record, error) {
 			var m struct {
 				Records []map[string]interface{} `json:"Records"`
@@ -147,8 +147,8 @@ func (opt *Option) Init() error {
 
 	switch opt.ObjectFormat {
 	case "", "none":
-		if opt.Parser == "json.Records[]" {
-			return errors.New("parser must not be json.Records[] when object-format is none")
+		if opt.Parser == "json.Records" {
+			return errors.New("parser must not be json.Records when object-format is none")
 		}
 		opt.newEncoder = func() encoder {
 			return newNoneEncoder(opt.newBuffer())
