@@ -11,15 +11,15 @@ const (
 	defaultCloudFrontNumColumns = 33
 )
 
-//recordParser predefined errors
+// recordParser predefined errors
 var (
 	SkipLine = errors.New("Please skip this line.")
 )
 
-type recordParserFunc func([]byte, *record) error
+type recordParserFunc func([]byte) (*record, error)
 
-func (p recordParserFunc) Parse(bs []byte, r *record) error {
-	return p(bs, r)
+func (p recordParserFunc) Parse(bs []byte) (*record, error) {
+	return p(bs)
 }
 
 type cloudfrontParser struct {
@@ -27,14 +27,13 @@ type cloudfrontParser struct {
 	fields  []string
 }
 
-func (p *cloudfrontParser) Parse(bs []byte, r *record) error {
+func (p *cloudfrontParser) Parse(bs []byte) (*record, error) {
 	str := string(bs)
-	rec := make(record, defaultCloudFrontNumColumns)
-	*r = rec
+	rec := newRecord(bs)
 	if str[0] == '#' {
 		part := strings.SplitN(str[1:], ":", 2)
 		if len(part) != 2 {
-			return SkipLine
+			return nil, SkipLine
 		}
 		key := strings.TrimSpace(part[0])
 		value := strings.TrimSpace(part[1])
@@ -57,15 +56,15 @@ func (p *cloudfrontParser) Parse(bs []byte, r *record) error {
 			}
 			p.fields = fields
 		}
-		return SkipLine
+		return nil, SkipLine
 	}
 	values := strings.Split(str, "\t")
 	if len(values) > len(p.fields) {
-		return fmt.Errorf("this row has more values ​​than fields, num of values = %d, num of feilds = %d", len(values), len(p.fields))
+		return nil, fmt.Errorf("this row has more values ​​than fields, num of values = %d, num of feilds = %d", len(values), len(p.fields))
 	}
 	var dateValue, timeValue string
 	for i, field := range p.fields {
-		rec[field] = values[i]
+		rec.parsed[field] = values[i]
 		if field == "date" {
 			dateValue = values[i]
 		}
@@ -73,6 +72,6 @@ func (p *cloudfrontParser) Parse(bs []byte, r *record) error {
 			timeValue = values[i]
 		}
 	}
-	rec["datetime"] = dateValue + "T" + timeValue + "Z"
-	return nil
+	rec.parsed["datetime"] = dateValue + "T" + timeValue + "Z"
+	return rec, nil
 }
