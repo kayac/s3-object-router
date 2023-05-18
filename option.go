@@ -43,7 +43,7 @@ type replacer interface {
 }
 
 type recordParser interface {
-	Parse([]byte) (*record, error)
+	Parse([]byte) ([]*record, error)
 }
 type timeParser struct {
 	layout string
@@ -90,12 +90,27 @@ func (opt *Option) Init() error {
 	}
 	switch opt.Parser {
 	case "", "json":
-		opt.recordParser = recordParserFunc(func(b []byte) (*record, error) {
+		opt.recordParser = recordParserFunc(func(b []byte) ([]*record, error) {
 			r := newRecord(b)
 			if err := json.Unmarshal(b, &(r.parsed)); err != nil {
 				return nil, err
 			}
-			return r, nil
+			return []*record{r}, nil
+		})
+	case "json.Records":
+		opt.recordParser = recordParserFunc(func(b []byte) ([]*record, error) {
+			var m struct {
+				Records []map[string]interface{} `json:"Records"`
+			}
+			if err := json.Unmarshal(b, &m); err != nil {
+				return nil, err
+			}
+			records := make([]*record, 0, len(m.Records))
+			for _, parsed := range m.Records {
+				p := parsed
+				records = append(records, &record{parsed: p, raw: nil})
+			}
+			return records, nil
 		})
 	case "cloudfront":
 		opt.recordParser = &cloudfrontParser{}
@@ -132,6 +147,9 @@ func (opt *Option) Init() error {
 
 	switch opt.ObjectFormat {
 	case "", "none":
+		if opt.Parser == "json.Records" {
+			return errors.New("parser must not be json.Records when object-format is none")
+		}
 		opt.newEncoder = func() encoder {
 			return newNoneEncoder(opt.newBuffer())
 		}

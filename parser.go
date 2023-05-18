@@ -16,9 +16,9 @@ var (
 	SkipLine = errors.New("Please skip this line.")
 )
 
-type recordParserFunc func([]byte) (*record, error)
+type recordParserFunc func([]byte) ([]*record, error)
 
-func (p recordParserFunc) Parse(bs []byte) (*record, error) {
+func (p recordParserFunc) Parse(bs []byte) ([]*record, error) {
 	return p(bs)
 }
 
@@ -27,7 +27,7 @@ type cloudfrontParser struct {
 	fields  []string
 }
 
-func (p *cloudfrontParser) Parse(bs []byte) (*record, error) {
+func (p *cloudfrontParser) Parse(bs []byte) ([]*record, error) {
 	str := string(bs)
 	rec := newRecord(bs)
 	if str[0] == '#' {
@@ -73,5 +73,5 @@ func (p *cloudfrontParser) Parse(bs []byte) (*record, error) {
 		}
 	}
 	rec.parsed["datetime"] = dateValue + "T" + timeValue + "Z"
-	return rec, nil
+	return []*record{rec}, nil
 }
