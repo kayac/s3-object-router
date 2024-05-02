@@ -15,9 +15,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 )
@@ -39,7 +39,7 @@ var (
 
 // Router represents s3-object-router application
 type Router struct {
-	s3     *s3.S3
+	s3     *s3.Client
 	option *Option
 	sem    *semaphore.Weighted
 
@@ -52,7 +52,7 @@ func New(opt *Option) (*Router, error) {
 		return nil, err
 	}
 
-	sess, err := session.NewSession()
+	awsConf, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func New(opt *Option) (*Router, error) {
 	}
 
 	return &Router{
-		s3:     s3.New(sess),
+		s3:     s3.NewFromConfig(awsConf),
 		option: opt,
 		sem:    semaphore.NewWeighted(int64(MaxConcurrency)),
 		genKeyPrefix: func(r *record) (string, error) {
@@ -88,13 +88,13 @@ func (r *Router) Run(ctx context.Context, s3url string) error {
 	}
 	defer src.Close()
 	keyBase := r.genKeyBase(s3url)
-	meta := map[string]*string{
-		MetaHeaderName: aws.String(s3url),
+	meta := map[string]string{
+		MetaHeaderName: s3url,
 	}
 	return r.Route(ctx, src, keyBase, meta)
 }
 
-func (r *Router) Route(ctx context.Context, src io.Reader, keyBase string, meta map[string]*string) error {
+func (r *Router) Route(ctx context.Context, src io.Reader, keyBase string, meta map[string]string) error {
 	dests, err := r.route(src, keyBase)
 	if err != nil {
 		return err
@@ -209,7 +209,7 @@ func (r *Router) getS3Object(ctx context.Context, s3url string) (io.ReadCloser, 
 		return nil, errors.New("s3:// required")
 	}
 
-	out, err := r.s3.GetObjectWithContext(ctx, &s3.GetObjectInput{
+	out, err := r.s3.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(u.Host),
 		Key:    aws.String(strings.TrimPrefix(u.Path, "/")),
 	})
@@ -220,7 +220,7 @@ func (r *Router) getS3Object(ctx context.Context, s3url string) (io.ReadCloser, 
 	for name, value := range out.Metadata {
 		if strings.ToLower(name) == MetaHeaderName {
 			out.Body.Close()
-			return nil, fmt.Errorf("%s seems to be an already routed object. original: %s", s3url, *value)
+			return nil, fmt.Errorf("%s seems to be an already routed object. original: %s", s3url, value)
 		}
 	}
 
@@ -242,7 +242,7 @@ func (r *Router) genDestination(rec *record, name string) (destination, error) {
 	}, nil
 }
 
-func (r *Router) putToS3(ctx context.Context, dest destination, body io.ReadSeeker, meta map[string]*string) error {
+func (r *Router) putToS3(ctx context.Context, dest destination, body io.ReadSeeker, meta map[string]string) error {
 	r.sem.Acquire(ctx, 1)
 	defer r.sem.Release(1)
 
@@ -253,7 +253,7 @@ func (r *Router) putToS3(ctx context.Context, dest destination, body io.ReadSeek
 		Metadata: meta,
 	}
 	log.Println("[info] starting put to", dest.String())
-	_, err := r.s3.PutObjectWithContext(ctx, in)
+	_, err := r.s3.PutObject(ctx, in)
 	if err == nil {
 		log.Println("[info] completed put to", dest.String())
 	}
