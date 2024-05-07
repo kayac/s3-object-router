@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.26.1
 	github.com/aws/aws-sdk-go-v2/config v1.27.11
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.53.1
-	github.com/google/go-cmp v0.5.9
+	github.com/google/go-cmp v0.6.0
 	github.com/mickep76/mapslice-json v0.0.0-20200219143743-9f118f7dce45
 	github.com/pkg/errors v0.9.1
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
