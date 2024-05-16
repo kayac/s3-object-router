@@ -17,6 +17,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
@@ -209,7 +210,12 @@ func (r *Router) getS3Object(ctx context.Context, s3url string) (io.ReadCloser, 
 		return nil, errors.New("s3:// required")
 	}
 
-	out, err := r.s3.GetObject(ctx, &s3.GetObjectInput{
+	s3c, err := r.getS3Client(ctx, u.Host)
+	if err != nil {
+		return nil, err
+	}
+
+	out, err := s3c.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(u.Host),
 		Key:    aws.String(strings.TrimPrefix(u.Path, "/")),
 	})
@@ -246,6 +252,11 @@ func (r *Router) putToS3(ctx context.Context, dest destination, body io.ReadSeek
 	r.sem.Acquire(ctx, 1)
 	defer r.sem.Release(1)
 
+	s3c, err := r.getS3Client(ctx, dest.Bucket)
+	if err != nil {
+		return err
+	}
+
 	in := &s3.PutObjectInput{
 		Bucket:   &dest.Bucket,
 		Key:      &dest.Key,
@@ -253,11 +264,32 @@ func (r *Router) putToS3(ctx context.Context, dest destination, body io.ReadSeek
 		Metadata: meta,
 	}
 	log.Println("[info] starting put to", dest.String())
-	_, err := r.s3.PutObject(ctx, in)
-	if err == nil {
+	if _, err := s3c.PutObject(ctx, in); err != nil {
 		log.Println("[info] completed put to", dest.String())
 	}
 	return err
+}
+
+// getS3Client returns s3 client for same region as the bucket
+func (r *Router) getS3Client(ctx context.Context, bucket string) (*s3.Client, error) {
+	bucketRegion, err := manager.GetBucketRegion(ctx, r.s3, bucket)
+	if err != nil {
+		return nil, err
+	}
+
+	if r.s3.Options().Region == bucketRegion {
+		return r.s3, nil
+	}
+
+	awsConfig, err := config.LoadDefaultConfig(
+		ctx,
+		config.WithRegion(bucketRegion),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return s3.NewFromConfig(awsConfig), nil
 }
 
 type record struct {
