@@ -264,7 +264,7 @@ func (r *Router) putToS3(ctx context.Context, dest destination, body io.ReadSeek
 		Metadata: meta,
 	}
 	log.Println("[info] starting put to", dest.String())
-	if _, err := s3c.PutObject(ctx, in); err != nil {
+	if _, err := s3c.PutObject(ctx, in); err == nil {
 		log.Println("[info] completed put to", dest.String())
 	}
 	return err
