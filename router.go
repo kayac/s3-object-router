@@ -305,7 +305,6 @@ func (r *Router) s3Client(ctx context.Context, bucket string) (*s3.Client, error
 }
 
 func (r *Router) getS3BucketRegion(ctx context.Context, bucket string) (string, error) {
-	log.Println("in getS3BucketRegion")
 	if region, ok := r.s3bucketRegion[bucket]; ok {
 		log.Printf("[debug] bucket region for %s is cached: %s\n", bucket, region)
 		return region, nil
