@@ -44,11 +44,11 @@ type Router struct {
 	awsConf aws.Config
 
 	// s3 clients for each region
-	s3 map[string]*s3.Client
+	s3     map[string]*s3.Client
 	s3Lock sync.Mutex
 
 	// s3 bucket region cache
-	s3bucketRegion map[string]string
+	s3bucketRegion     map[string]string
 	s3bucketRegionLock sync.Mutex
 
 	option *Option
