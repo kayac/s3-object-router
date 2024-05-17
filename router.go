@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -44,9 +45,11 @@ type Router struct {
 
 	// s3 clients for each region
 	s3 map[string]*s3.Client
+	s3Lock sync.Mutex
 
 	// s3 bucket region cache
 	s3bucketRegion map[string]string
+	s3bucketRegionLock sync.Mutex
 
 	option *Option
 	sem    *semaphore.Weighted
@@ -292,6 +295,9 @@ func (r *Router) s3Client(ctx context.Context, bucket string) (*s3.Client, error
 		return nil, err
 	}
 
+	r.s3Lock.Lock()
+	r.s3Lock.Unlock()
+
 	if s3, ok := r.s3[bucketRegion]; ok {
 		return s3, nil
 	}
@@ -305,6 +311,9 @@ func (r *Router) s3Client(ctx context.Context, bucket string) (*s3.Client, error
 }
 
 func (r *Router) getS3BucketRegion(ctx context.Context, bucket string) (string, error) {
+	r.s3bucketRegionLock.Lock()
+	defer r.s3bucketRegionLock.Unlock()
+
 	if region, ok := r.s3bucketRegion[bucket]; ok {
 		log.Printf("[debug] bucket region for %s is cached: %s\n", bucket, region)
 		return region, nil
