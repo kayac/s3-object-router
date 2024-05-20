@@ -296,7 +296,7 @@ func (r *Router) s3Client(ctx context.Context, bucket string) (*s3.Client, error
 	}
 
 	r.s3Lock.Lock()
-	r.s3Lock.Unlock()
+	defer r.s3Lock.Unlock()
 
 	if s3, ok := r.s3[bucketRegion]; ok {
 		return s3, nil
