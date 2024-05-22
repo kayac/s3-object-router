@@ -14,9 +14,11 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
@@ -39,7 +41,16 @@ var (
 
 // Router represents s3-object-router application
 type Router struct {
-	s3     *s3.Client
+	awsConf aws.Config
+
+	// s3 clients for each region
+	s3     map[string]*s3.Client
+	s3Lock sync.Mutex
+
+	// s3 bucket region cache
+	s3bucketRegion     map[string]string
+	s3bucketRegionLock sync.Mutex
+
 	option *Option
 	sem    *semaphore.Weighted
 
@@ -66,9 +77,13 @@ func New(opt *Option) (*Router, error) {
 	}
 
 	return &Router{
-		s3:     s3.NewFromConfig(awsConf),
-		option: opt,
-		sem:    semaphore.NewWeighted(int64(MaxConcurrency)),
+		awsConf: awsConf,
+		s3: map[string]*s3.Client{
+			awsConf.Region: s3.NewFromConfig(awsConf),
+		},
+		s3bucketRegion: map[string]string{},
+		option:         opt,
+		sem:            semaphore.NewWeighted(int64(MaxConcurrency)),
 		genKeyPrefix: func(r *record) (string, error) {
 			var b strings.Builder
 			if err := tmpl.Execute(&b, r.parsed); err != nil {
@@ -209,7 +224,12 @@ func (r *Router) getS3Object(ctx context.Context, s3url string) (io.ReadCloser, 
 		return nil, errors.New("s3:// required")
 	}
 
-	out, err := r.s3.GetObject(ctx, &s3.GetObjectInput{
+	s3c, err := r.s3Client(ctx, u.Host)
+	if err != nil {
+		return nil, err
+	}
+
+	out, err := s3c.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(u.Host),
 		Key:    aws.String(strings.TrimPrefix(u.Path, "/")),
 	})
@@ -246,6 +266,11 @@ func (r *Router) putToS3(ctx context.Context, dest destination, body io.ReadSeek
 	r.sem.Acquire(ctx, 1)
 	defer r.sem.Release(1)
 
+	s3c, err := r.s3Client(ctx, dest.Bucket)
+	if err != nil {
+		return err
+	}
+
 	in := &s3.PutObjectInput{
 		Bucket:   &dest.Bucket,
 		Key:      &dest.Key,
@@ -253,11 +278,58 @@ func (r *Router) putToS3(ctx context.Context, dest destination, body io.ReadSeek
 		Metadata: meta,
 	}
 	log.Println("[info] starting put to", dest.String())
-	_, err := r.s3.PutObject(ctx, in)
-	if err == nil {
+	if _, err := s3c.PutObject(ctx, in); err == nil {
 		log.Println("[info] completed put to", dest.String())
 	}
 	return err
+}
+
+func (r *Router) defaultS3Client() *s3.Client {
+	r.s3Lock.Lock()
+	defer r.s3Lock.Unlock()
+	return r.s3[r.awsConf.Region]
+}
+
+// s3Client returns s3 client for same region as the bucket
+func (r *Router) s3Client(ctx context.Context, bucket string) (*s3.Client, error) {
+	bucketRegion, err := r.getS3BucketRegion(ctx, bucket)
+	if err != nil {
+		return nil, err
+	}
+
+	r.s3Lock.Lock()
+	defer r.s3Lock.Unlock()
+
+	if s3, ok := r.s3[bucketRegion]; ok {
+		return s3, nil
+	}
+
+	awsConfig := r.awsConf.Copy()
+	awsConfig.Region = bucketRegion
+	s3 := s3.NewFromConfig(awsConfig)
+	r.s3[bucketRegion] = s3
+
+	return s3, nil
+}
+
+func (r *Router) getS3BucketRegion(ctx context.Context, bucket string) (string, error) {
+	r.s3bucketRegionLock.Lock()
+	defer r.s3bucketRegionLock.Unlock()
+
+	if region, ok := r.s3bucketRegion[bucket]; ok {
+		log.Printf("[debug] bucket region for %s is cached: %s\n", bucket, region)
+		return region, nil
+	}
+
+	region, err := manager.GetBucketRegion(ctx, r.defaultS3Client(), bucket)
+	if err != nil {
+		return "", err
+	}
+
+	r.s3bucketRegion[bucket] = region
+	log.Printf("[debug] bucket region for %s is %s, added to cache\n", bucket, region)
+
+	return region, nil
 }
 
 type record struct {
