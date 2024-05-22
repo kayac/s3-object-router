@@ -285,6 +285,8 @@ func (r *Router) putToS3(ctx context.Context, dest destination, body io.ReadSeek
 }
 
 func (r *Router) defaultS3Client() *s3.Client {
+	r.s3Lock.Lock()
+	defer r.s3Lock.Unlock()
 	return r.s3[r.awsConf.Region]
 }
 
